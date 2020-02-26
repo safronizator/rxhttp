@@ -63,10 +63,10 @@ export interface RequestInterface extends HttpMessageInterface {
 }
 
 export interface ServerResponseInterface extends ResponseInterface {
-    context: Context;
+    context: ContextInterface;
 }
 
-export interface Context {
+export interface ContextInterface {
     id: Id;
     original: NodeHttpContext;
     state: StateContainer;
@@ -74,15 +74,15 @@ export interface Context {
 }
 
 export interface RequestHandlerFunc {
-    (ctx: Context): ResponseLike | Promise<ResponseLike>;
+    (ctx: ContextInterface): ResponseLike | Promise<ResponseLike>;
 }
 
 export interface RequestHandler {
-    (source: Observable<Context>): Observable<ServerResponseInterface>;
+    (source: Observable<ContextInterface>): Observable<ServerResponseInterface>;
 }
 
 export interface Middleware {
-    (source: Observable<Context>): Observable<Context>;
+    (source: Observable<ContextInterface>): Observable<ContextInterface>;
 }
 
 export interface ResponseHandler {

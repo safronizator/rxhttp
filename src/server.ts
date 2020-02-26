@@ -1,12 +1,12 @@
 import {Observable, Observer, Subject} from "rxjs";
 import {
-    Context, DefaultHost, DefaultPort,
+    DefaultHost, DefaultPort,
     isReadableStream,
     ResponseHandler,
     ServerResponseInterface
 } from "./interface";
 import http from "http";
-import {Request} from "./base";
+import {Context} from "./base";
 import {catchErrors} from "./handling";
 import {tap} from "rxjs/operators";
 import { debug } from "./interface";
@@ -90,12 +90,7 @@ export class Server implements Observer<ServerResponseInterface> {
                 res.on("finish", () => {
                     dbg("Request#%d processed", id);
                 });
-                this._requests.next({
-                    id,
-                    original: { req, res },
-                    state: {},
-                    request: Request.fromNodeRequest(req)
-                });
+                this._requests.next(Context.fromNodeContext(id, { req, res  }));
             });
             const [host, port] = (addr || "").split(":");
             const portNum = parseInt(port);

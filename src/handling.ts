@@ -1,5 +1,5 @@
 import {Response} from "./base";
-import {Context, RequestHandlerFunc, RequestHandler, ResponseHandler} from "./interface";
+import {ContextInterface, RequestHandlerFunc, RequestHandler, ResponseHandler} from "./interface";
 import {concat, of, throwError} from "rxjs";
 import {catchError as rxCatch, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
 import {StatusCode} from "./http";
@@ -8,7 +8,7 @@ import { debug } from "./interface";
 
 
 export class HandlingError extends Error {
-    constructor(message: string, readonly ctx: Context, readonly httpStatus: StatusCode = StatusCode.InternalServerError) {
+    constructor(message: string, readonly ctx: ContextInterface, readonly httpStatus: StatusCode = StatusCode.InternalServerError) {
         super(message);
     }
 }

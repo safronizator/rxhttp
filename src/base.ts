@@ -3,11 +3,11 @@ import {
     DefaultStatus,
     HeadersLike,
     Headers,
-    Context,
+    ContextInterface,
     isResponseInterface,
     RequestInterface,
     ResponseLike,
-    ServerResponseInterface
+    ServerResponseInterface, NodeHttpContext, Id, StateContainer
 } from "./interface";
 import {Method, ResponseHeader, StatusCode} from "./http";
 import {IncomingHttpHeaders, IncomingMessage, STATUS_CODES} from "http";
@@ -160,12 +160,12 @@ const responseDefaultOpts: ResponseOpts = {
 export class Response implements ServerResponseInterface {
 
     private readonly _body: BodyLike;
-    private readonly _context: Context;
+    private readonly _context: ContextInterface;
     private readonly _headers: HeadersContainer;
     private readonly _reason?: string;
     private readonly _status: StatusCode;
 
-    protected constructor(ctx: Context, opts: ResponseOpts) {
+    protected constructor(ctx: ContextInterface, opts: ResponseOpts) {
         this._context = ctx;
         this._body = opts.body;
         this._headers = HeadersContainer.from(opts.headers);
@@ -173,11 +173,11 @@ export class Response implements ServerResponseInterface {
         this._status = opts.status;
     }
 
-    static for(context: Context): Response {
+    static for(context: ContextInterface): Response {
         return new Response(context, responseDefaultOpts);
     }
 
-    static from(r: ResponseLike, ctx: Context): Response {
+    static from(r: ResponseLike, ctx: ContextInterface): Response {
         if (r instanceof Response) {
             return r;
         }
@@ -204,7 +204,7 @@ export class Response implements ServerResponseInterface {
         return this._headers;
     }
 
-    get context(): Context {
+    get context(): ContextInterface {
         return this._context;
     }
 
@@ -212,9 +212,19 @@ export class Response implements ServerResponseInterface {
         return this._body;
     }
 
-    withStatus(status: StatusCode): Response {
+    withStatus(status: StatusCode, reasonMsg?: string): Response {
         const { headers, reason, body } = this;
-        return new Response(this.context, { body, status, headers, reason });
+        return new Response(this.context, { body, status, headers, reason: reasonMsg || reason });
+    }
+
+    withHeader(name: string, values: string | string[]): Response {
+        const { status, headers, body, reason } = this;
+        return new Response(this.context, {
+            headers: headers.add(name, values),
+            body,
+            status,
+            reason
+        });
     }
 
     withBody(body: BodyLike): Response {
@@ -232,4 +242,79 @@ export class Response implements ServerResponseInterface {
         });
     }
 
+}
+
+
+interface ContextOpts {
+    original: NodeHttpContext;
+    request: RequestInterface;
+    state?: StateContainer;
+}
+
+
+export class Context implements ContextInterface {
+
+    private readonly _id: Id;
+    private readonly _original: NodeHttpContext;
+    private readonly _request: RequestInterface;
+    private readonly _state: StateContainer;
+
+    protected constructor(id: Id, opts: ContextOpts) {
+        this._id = id;
+        this._original = opts.original;
+        this._request = opts.request;
+        this._state = opts.state || {};
+    }
+
+    static fromNodeContext(id: Id, nodeCtx: NodeHttpContext): Context {
+        return new Context(id, {
+            original: nodeCtx,
+            request: Request.fromNodeRequest(nodeCtx.req)
+        });
+    }
+
+    static from(context: ContextInterface): Context {
+        if (context instanceof Context) {
+            return context;
+        }
+        return new Context(context.id, { ...context });
+    }
+
+    get id(): string {
+        return this._id;
+    }
+
+    get original(): NodeHttpContext {
+        return this._original;
+    }
+
+    get request(): RequestInterface {
+        return this._request;
+    }
+
+    get state(): StateContainer {
+        return this._state;
+    }
+
+    response(body: BodyLike = ""): Response {
+        return Response.for(this).withBody(body);
+    }
+
+    withState(s: StateContainer): Context {
+        const { id, original, state, request } = this;
+        return new Context(id, {
+            state: { ...state, ...s },
+            original,
+            request
+        });
+    }
+
+    withStateField(name: string, value: any): Context {
+        const { id, original, state, request } = this;
+        return new Context(id, {
+            state: { ...state, [name]: value },
+            original,
+            request
+        });
+    }
 }
