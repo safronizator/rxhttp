@@ -41,7 +41,7 @@ const addPostHandler = (ctx: Context): ResponseLike => {
     if (!contents || !contents.title || typeof contents.title !== "string") {
         throw new HandlingError("Missing required field: title", ctx, StatusCode.BadRequest);
     }
-    return ctx.response().withJsonBody({
+    return ctx.reply().withJsonBody({
         id: ++id,
         title: contents.title
     }).withStatus(StatusCode.Created);

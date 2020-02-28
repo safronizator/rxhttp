@@ -296,7 +296,7 @@ export class Context implements ContextInterface {
         return this._state;
     }
 
-    response(body: BodyLike = ""): Response {
+    reply(body: BodyLike = ""): Response {
         return Response.for(this).withBody(body);
     }
 
