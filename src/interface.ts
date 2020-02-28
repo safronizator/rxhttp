@@ -1,6 +1,5 @@
 import {Method, StatusCode} from "./http";
 import {IncomingMessage, ServerResponse} from "http";
-import {Observable} from "rxjs";
 import ReadableStream = NodeJS.ReadableStream;
 import debugFactory from "debug";
 
@@ -71,20 +70,4 @@ export interface ContextInterface {
     original: NodeHttpContext;
     state: StateContainer;
     request: RequestInterface;
-}
-
-export interface RequestHandlerFunc {
-    (ctx: ContextInterface): ResponseLike | Promise<ResponseLike>;
-}
-
-export interface RequestHandler {
-    (source: Observable<ContextInterface>): Observable<ServerResponseInterface>;
-}
-
-export interface Middleware {
-    (source: Observable<ContextInterface>): Observable<ContextInterface>;
-}
-
-export interface ResponseHandler {
-    (source: Observable<ServerResponseInterface>): Observable<ServerResponseInterface>;
 }

@@ -1,6 +1,6 @@
 import listen from "../server";
-import {ContextInterface, Middleware, ResponseLike} from "../interface";
-import {handle, HandlingError} from "../handling";
+import {ResponseLike} from "../interface";
+import {handle, HandlingError, Middleware} from "../handling";
 import {RequestHeader, StatusCode} from "../http";
 import {Router} from "../router";
 import {mergeMap, tap} from "rxjs/operators";
@@ -23,7 +23,7 @@ const parseBody = (): Middleware => source => source.pipe(mergeMap(async ctx => 
     if (!ctx.request.headers.has(RequestHeader.CONTENT_TYPE, "application/json")) {
         return ctx;
     }
-    return Context.from(ctx).withState({
+    return ctx.withState({
         parsedBody: JSON.parse(await streamReadAll(ctx.request.body))
     });
 }));
@@ -32,22 +32,22 @@ const parseBody = (): Middleware => source => source.pipe(mergeMap(async ctx => 
 
 let id = 0;
 
-const getPostHandler = (ctx: ContextInterface): ResponseLike => {
+const getPostHandler = (ctx: Context): ResponseLike => {
     return `Post #${ctx.state.router.id}`;
 };
 
-const addPostHandler = (ctx: ContextInterface): ResponseLike => {
+const addPostHandler = (ctx: Context): ResponseLike => {
     const contents = ctx.state.parsedBody;
     if (!contents || !contents.title || typeof contents.title !== "string") {
         throw new HandlingError("Missing required field: title", ctx, StatusCode.BadRequest);
     }
-    return Response.for(ctx).withJsonBody({
+    return ctx.response().withJsonBody({
         id: ++id,
         title: contents.title
     }).withStatus(StatusCode.Created);
 };
 
-const notFoundHandler = (ctx: ContextInterface): ResponseLike => {
+const notFoundHandler = (ctx: Context): ResponseLike => {
     return { status: StatusCode.NotFound, body: `Path ${ctx.request.url.pathname} is not found` };
 };
 

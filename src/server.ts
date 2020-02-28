@@ -2,12 +2,11 @@ import {Observable, Observer, Subject} from "rxjs";
 import {
     DefaultHost, DefaultPort,
     isReadableStream,
-    ResponseHandler,
     ServerResponseInterface
 } from "./interface";
 import http from "http";
 import {Context} from "./base";
-import {catchErrors} from "./handling";
+import {catchErrors, ResponseHandler} from "./handling";
 import {tap} from "rxjs/operators";
 import { debug } from "./interface";
 

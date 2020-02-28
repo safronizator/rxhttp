@@ -1,14 +1,34 @@
-import {Response} from "./base";
-import {ContextInterface, RequestHandlerFunc, RequestHandler, ResponseHandler} from "./interface";
-import {concat, of, throwError} from "rxjs";
+import {Context, Response} from "./base";
+import {
+    ResponseLike,
+    ServerResponseInterface
+} from "./interface";
+import {concat, Observable, of, throwError} from "rxjs";
 import {catchError as rxCatch, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
 import {StatusCode} from "./http";
 
 import { debug } from "./interface";
 
 
+export interface RequestHandlerFunc {
+    (ctx: Context): ResponseLike | Promise<ResponseLike>;
+}
+
+export interface RequestHandler {
+    (source: Observable<Context>): Observable<ServerResponseInterface>;
+}
+
+export interface Middleware {
+    (source: Observable<Context>): Observable<Context>;
+}
+
+export interface ResponseHandler {
+    (source: Observable<ServerResponseInterface>): Observable<ServerResponseInterface>;
+}
+
+
 export class HandlingError extends Error {
-    constructor(message: string, readonly ctx: ContextInterface, readonly httpStatus: StatusCode = StatusCode.InternalServerError) {
+    constructor(message: string, readonly ctx: Context, readonly httpStatus: StatusCode = StatusCode.InternalServerError) {
         super(message);
     }
 }
