@@ -245,35 +245,35 @@ export class Response implements ServerResponseInterface {
 }
 
 
-interface ContextOpts {
+interface ContextOpts<T={}> {
     original: NodeHttpContext;
     request: RequestInterface;
-    state?: StateContainer;
+    state: StateContainer<T>;
 }
 
-
-export class Context implements ContextInterface {
+export class Context<T={}> implements ContextInterface<T> {
 
     private readonly _id: Id;
     private readonly _original: NodeHttpContext;
     private readonly _request: RequestInterface;
-    private readonly _state: StateContainer;
+    private readonly _state: StateContainer<T>;
 
-    protected constructor(id: Id, opts: ContextOpts) {
+    protected constructor(id: Id, opts: ContextOpts<T>) {
         this._id = id;
         this._original = opts.original;
         this._request = opts.request;
-        this._state = opts.state || {};
+        this._state = opts.state;
     }
 
     static fromNodeContext(id: Id, nodeCtx: NodeHttpContext): Context {
         return new Context(id, {
             original: nodeCtx,
-            request: Request.fromNodeRequest(nodeCtx.req)
+            request: Request.fromNodeRequest(nodeCtx.req),
+            state: {}
         });
     }
 
-    static from(context: ContextInterface): Context {
+    static from<T>(context: ContextInterface<T>): Context {
         if (context instanceof Context) {
             return context;
         }
@@ -292,7 +292,7 @@ export class Context implements ContextInterface {
         return this._request;
     }
 
-    get state(): StateContainer {
+    get state(): StateContainer<T> {
         return this._state;
     }
 
@@ -300,16 +300,19 @@ export class Context implements ContextInterface {
         return Response.for(this).withBody(body);
     }
 
-    withState(s: StateContainer): Context {
+    withState<U>(s: StateContainer<U>): Context<T & U> {
         const { id, original, state, request } = this;
-        return new Context(id, {
+        return new Context<T & U>(id, {
             state: { ...state, ...s },
             original,
             request
         });
     }
 
-    withStateField(name: string, value: any): Context {
+    /**
+     * @todo: set proper result type
+     */
+    withStateField<U>(name: string, value: U) /*: Context<T & { [prop in typeof name]: U }> */ {
         const { id, original, state, request } = this;
         return new Context(id, {
             state: { ...state, [name]: value },
@@ -318,3 +321,4 @@ export class Context implements ContextInterface {
         });
     }
 }
+

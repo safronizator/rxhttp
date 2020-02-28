@@ -9,7 +9,7 @@ import {
     RequestHandlerFunc
 } from "../handling";
 import {RequestHeader, StatusCode} from "../http";
-import {Router} from "../router";
+import {Routed, Router} from "../router";
 import {mergeMap, tap} from "rxjs/operators";
 import {objectFromMap, streamReadAll} from "../helpers";
 import {Context, Response} from "../base";
@@ -22,7 +22,7 @@ const errHandler: ErrorHandlerFunc = (err) => Response.for(err.ctx)
     .withHeader("Content-Type", "application/json")
     .withJsonBody({ msg: err.message });
 
-const handle = (handler: RequestHandlerFunc): RequestHandler => source => source.pipe(defHandle(handler, errHandler));
+const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(defHandle(handler, errHandler));
 
 ///////// Defining middlewares
 
@@ -35,23 +35,32 @@ const printDebugInfo = (): Middleware => source => source.pipe(tap(ctx => {
     })();
 }));
 
-const parseBody = (): Middleware => source => source.pipe(mergeMap(async ctx => {
+interface BodyParsed {
+    parsedBody: any;
+}
+
+const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe(mergeMap(async ctx => {
     if (!ctx.request.headers.has(RequestHeader.ContentType, "application/json")) {
-        return ctx;
+        throw new HandlingError("Request body should contain JSON-encoded data", ctx, StatusCode.BadRequest);
     }
-    return ctx.withState({
-        parsedBody: JSON.parse(await streamReadAll(ctx.request.body))
-    });
+    try {
+        return ctx.withState({
+            parsedBody: JSON.parse(await streamReadAll(ctx.request.body))
+        });
+    } catch (e) {
+        throw new HandlingError(e.message, ctx, StatusCode.BadRequest);
+    }
+
 }));
 
 ///////// Defining request handlers
 
 let id = 0;
 
-const getPostHandler = (ctx: Context): ResponseLike => ctx.reply()
+const getPostHandler = (ctx: Context<Routed>): ResponseLike => ctx.reply()
     .withJsonBody({ id: ctx.state.router.id, title: "Some post" });
 
-const addPostHandler = (ctx: Context): ResponseLike => {
+const addPostHandler = (ctx: Context<BodyParsed>): ResponseLike => {
     const contents = ctx.state.parsedBody;
     if (!contents || !contents.title || typeof contents.title !== "string") {
         throw new HandlingError("Missing required field: title", ctx, StatusCode.BadRequest);
@@ -88,7 +97,7 @@ const router = new Router(requests);
 router.get("/posts/:id").pipe(handle(getPostHandler)).subscribe(server);
 
 router.post("/posts").pipe(
-    parseBody(),         // middleware applied to only this one route
+    parseJson(),         // middleware applied to only this one route
     handle(addPostHandler)
 ).subscribe(server);
 

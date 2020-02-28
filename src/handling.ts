@@ -9,17 +9,20 @@ import {StatusCode} from "./http";
 
 import { debug } from "./interface";
 
-
-export interface RequestHandlerFunc {
-    (ctx: Context): ResponseLike | Promise<ResponseLike>;
+export interface Middleware<T={}, U={}> {
+    (source: Observable<Context<T>>): Observable<Context<U>>;
 }
 
-export interface RequestHandler {
-    (source: Observable<Context>): Observable<ServerResponseInterface>;
+export interface RequestHandlerFunc<T={}> {
+    (ctx: Context<T>): ResponseLike | Promise<ResponseLike>;
 }
 
-export interface Middleware {
-    (source: Observable<Context>): Observable<Context>;
+export interface RequestHandler<T={}, U=ServerResponseInterface> {
+    (source: Observable<Context<T>>): Observable<U>;
+}
+
+export interface Renderer<T={}> {
+    (source: Observable<Context<T>>): Observable<ServerResponseInterface>;
 }
 
 export interface ResponseHandler {
@@ -38,7 +41,7 @@ export class HandlingError extends Error {
     }
 }
 
-export const handleUnsafe = (handler: RequestHandlerFunc): RequestHandler => source => source.pipe(
+export const handleUnsafe = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(
     mergeMap(async ctx => {
         try {
             return Response.from(await handler(ctx), ctx)
@@ -51,7 +54,7 @@ export const handleUnsafe = (handler: RequestHandlerFunc): RequestHandler => sou
     })
 );
 
-export const handle = (handler: RequestHandlerFunc, errHandler?: ErrorHandlerFunc): RequestHandler => source => source.pipe(
+export const handle = <T={}>(handler: RequestHandlerFunc<T>, errHandler?: ErrorHandlerFunc): RequestHandler<T> => source => source.pipe(
     handleUnsafe(handler),
     catchErrors(errHandler)
 );

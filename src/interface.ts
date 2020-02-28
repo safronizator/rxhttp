@@ -45,9 +45,11 @@ export function isReadableStream(data: any): data is ReadableStream {
     return typeof data.read === "function" && typeof data.readable === "boolean";
 }
 
-export interface StateContainer {
-    [key: string]: any;
-}
+// export interface StateContainer {
+//     [key: string]: any;
+// }
+
+export type StateContainer<T={}> = T & { [key: string]: any };
 
 export interface NodeHttpContext {
     req: IncomingMessage;
@@ -65,9 +67,9 @@ export interface ServerResponseInterface extends ResponseInterface {
     context: ContextInterface;
 }
 
-export interface ContextInterface {
+export interface ContextInterface<T={}> {
     id: Id;
     original: NodeHttpContext;
-    state: StateContainer;
+    state: StateContainer<T>;
     request: RequestInterface;
 }
