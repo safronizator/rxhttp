@@ -99,3 +99,11 @@ router.get("/error").pipe(
 ///////// Handling unmatched routes:
 
 router.unrouted.pipe(handle(notFoundHandler)).subscribe(server);
+
+
+///////// Exiting
+
+setTimeout(() => {
+    console.log("Exiting");
+    server.complete();
+}, 5000);

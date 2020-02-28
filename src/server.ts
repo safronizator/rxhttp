@@ -65,7 +65,9 @@ export class Server implements Observer<ServerResponseInterface> {
     }
 
     complete(): void {
-        //TODO: what should we do here?
+        this._closed = true;
+        this._requests.complete();
+        this._responses.complete();
     }
 
     error(err: any): void {
@@ -85,7 +87,7 @@ export class Server implements Observer<ServerResponseInterface> {
             let lastId = 0;
             const srv = http.createServer((req, res) => {
                 const id = (++lastId).toString();
-                dbg("New Request#%d from %s: %s %s", id, req.socket.remoteAddress, req.method, req.url);
+                dbg("new Request#%d from %s: %s %s", id, req.socket.remoteAddress, req.method, req.url);
                 res.on("finish", () => {
                     dbg("Request#%d processed", id);
                 });
@@ -99,12 +101,19 @@ export class Server implements Observer<ServerResponseInterface> {
             });
             srv.listen(parsedAddr.port, parsedAddr.host, () => {
                 dbg("listening %s:%d", parsedAddr.host, parsedAddr.port);
-                this._responses.subscribe(flushResponse); //TODO: handle errors?
+                this._responses.subscribe({
+                    next: flushResponse,
+                    complete: () => srv.close()
+                    //TODO: handle errors?
+                });
                 resolve();
             });
             srv.on("error", err => {
-                dbg("Error listening %s: %s", addr, err);
+                dbg("error listening %s: %s", addr, err);
                 reject(err);
+            });
+            srv.on("close", () => {
+                dbg("stopped");
             });
         });
     }
