@@ -4,7 +4,7 @@ import {
     ServerResponseInterface
 } from "./interface";
 import {concat, Observable, of, throwError} from "rxjs";
-import {catchError as rxCatch, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
+import {catchError as rxCatch, map, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
 import {StatusCode} from "./http";
 
 import { debug } from "./interface";
@@ -24,6 +24,11 @@ export interface Middleware {
 
 export interface ResponseHandler {
     (source: Observable<ServerResponseInterface>): Observable<ServerResponseInterface>;
+}
+
+export interface ErrorHandlerFunc {
+    //TODO: support for async result
+    (err: HandlingError): ResponseLike | Promise<ResponseLike>;
 }
 
 
@@ -46,12 +51,14 @@ export const handleUnsafe = (handler: RequestHandlerFunc): RequestHandler => sou
     })
 );
 
-export const handle = (handler: RequestHandlerFunc): RequestHandler => source => source.pipe(
+export const handle = (handler: RequestHandlerFunc, errHandler?: ErrorHandlerFunc): RequestHandler => source => source.pipe(
     handleUnsafe(handler),
-    catchErrors()
+    catchErrors(errHandler)
 );
 
-export const catchErrors = (): ResponseHandler => source => {
+const defErrHandler: ErrorHandlerFunc = err => Response.for(err.ctx).withBody(err.message).withStatus(err.httpStatus);
+
+export const catchErrors = (handler: ErrorHandlerFunc = defErrHandler): ResponseHandler => source => {
     const dbg = debug.extend("catchErrors");
     return source.pipe(
         shareReplay(),
@@ -60,7 +67,8 @@ export const catchErrors = (): ResponseHandler => source => {
             dbg("error catched while handling Request#%d: %s", err.ctx.id, err.message);
             //TODO: log
             return concat(
-                of(Response.for(err.ctx).withBody(err.message).withStatus(err.httpStatus)),
+                //TODO: support for async handler
+                of(handler(err)).pipe(mergeMap(async r => Response.from(await r, err.ctx))),
                 throwError(err)
             );
         }),

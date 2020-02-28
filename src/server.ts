@@ -6,7 +6,7 @@ import {
 } from "./interface";
 import http, {RequestListener} from "http";
 import {Context} from "./base";
-import {catchErrors, ResponseHandler} from "./handling";
+import {catchErrors, HandlingError, ResponseHandler} from "./handling";
 import {tap} from "rxjs/operators";
 import { debug } from "./interface";
 
@@ -54,6 +54,7 @@ export class Server implements Observer<ServerResponseInterface> {
     private readonly opts: ServerOpts;
     private readonly _requests = new Subject<Context>();
     private readonly _responses = new Subject<ServerResponseInterface>();
+    private readonly _errors = new Subject<HandlingError>();
     private _closed: boolean = false;
     private lastId: number = 0;
 
@@ -128,6 +129,10 @@ export class Server implements Observer<ServerResponseInterface> {
 
     get responses(): Observable<ServerResponseInterface> {
         return this._responses;
+    }
+
+    get errors(): Observable<HandlingError> {
+        return this._errors;
     }
 
     send(): ResponseHandler {

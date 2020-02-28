@@ -1,12 +1,28 @@
 import listen from "../server";
 import {ResponseLike} from "../interface";
-import {handle, HandlingError, Middleware} from "../handling";
+import {
+    ErrorHandlerFunc,
+    handle as defHandle,
+    HandlingError,
+    Middleware,
+    RequestHandler,
+    RequestHandlerFunc
+} from "../handling";
 import {RequestHeader, StatusCode} from "../http";
 import {Router} from "../router";
 import {mergeMap, tap} from "rxjs/operators";
 import {objectFromMap, streamReadAll} from "../helpers";
-import {Context} from "../base";
+import {Context, Response} from "../base";
 
+
+///////// Setting up error handler and overriding default request handle operator
+
+const errHandler: ErrorHandlerFunc = (err) => Response.for(err.ctx)
+    .withStatus(err.httpStatus)
+    .withHeader("Content-Type", "application/json")
+    .withJsonBody({ msg: err.message });
+
+const handle = (handler: RequestHandlerFunc): RequestHandler => source => source.pipe(defHandle(handler, errHandler));
 
 ///////// Defining middlewares
 
@@ -28,13 +44,12 @@ const parseBody = (): Middleware => source => source.pipe(mergeMap(async ctx => 
     });
 }));
 
-///////// Defining handlers
+///////// Defining request handlers
 
 let id = 0;
 
-const getPostHandler = (ctx: Context): ResponseLike => {
-    return `Post #${ctx.state.router.id}`;
-};
+const getPostHandler = (ctx: Context): ResponseLike => ctx.reply()
+    .withJsonBody({ id: ctx.state.router.id, title: "Some post" });
 
 const addPostHandler = (ctx: Context): ResponseLike => {
     const contents = ctx.state.parsedBody;
@@ -48,7 +63,8 @@ const addPostHandler = (ctx: Context): ResponseLike => {
 };
 
 const notFoundHandler = (ctx: Context): ResponseLike => {
-    return { status: StatusCode.NotFound, body: `Path ${ctx.request.url.pathname} is not found` };
+    throw new HandlingError(`Path ${ctx.request.url.pathname} is not found`, ctx, StatusCode.NotFound);
+    // return { status: StatusCode.NotFound, body: `Path ${ctx.request.url.pathname} is not found` };
 };
 
 const errorThrowingHandler = (): ResponseLike => {
@@ -59,7 +75,7 @@ const errorThrowingHandler = (): ResponseLike => {
 
 const server = listen("localhost:3000");
 
-///////// Shared middlewares:
+///////// Setting up common middlewares:
 
 const requests = server.requests.pipe(
     printDebugInfo()
@@ -72,7 +88,7 @@ const router = new Router(requests);
 router.get("/posts/:id").pipe(handle(getPostHandler)).subscribe(server);
 
 router.post("/posts").pipe(
-    parseBody(),         // middleware applied to only one route
+    parseBody(),         // middleware applied to only this one route
     handle(addPostHandler)
 ).subscribe(server);
 
