@@ -103,7 +103,10 @@ router.unrouted.pipe(handle(notFoundHandler)).subscribe(server);
 
 ///////// Exiting
 
-setTimeout(() => {
-    console.log("Exiting");
+const sigHandler = () => {
+    console.log("Exiting ...");
     server.complete();
-}, 5000);
+};
+
+process.on('SIGINT', sigHandler);
+process.on('SIGTERM', sigHandler);
