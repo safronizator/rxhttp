@@ -36,7 +36,7 @@ const printDebugInfo = (): Middleware => source => source.pipe(tap(ctx => {
 }));
 
 const parseBody = (): Middleware => source => source.pipe(mergeMap(async ctx => {
-    if (!ctx.request.headers.has(RequestHeader.CONTENT_TYPE, "application/json")) {
+    if (!ctx.request.headers.has(RequestHeader.ContentType, "application/json")) {
         return ctx;
     }
     return ctx.withState({

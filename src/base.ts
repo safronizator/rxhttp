@@ -235,7 +235,7 @@ export class Response implements ServerResponseInterface {
     withJsonBody(data: any): Response {
         const { status, headers, reason } = this;
         return new Response(this.context, {
-            headers: headers.add(ResponseHeader.CONTENT_TYPE, "application/json"),
+            headers: headers.add(ResponseHeader.ContentType, "application/json"),
             body: JSON.stringify(data),
             status,
             reason
