@@ -4,7 +4,7 @@ import {
     isReadableStream,
     ServerResponseInterface
 } from "./interface";
-import http from "http";
+import http, {RequestListener} from "http";
 import {Context} from "./base";
 import {catchErrors, ResponseHandler} from "./handling";
 import {tap} from "rxjs/operators";
@@ -55,6 +55,7 @@ export class Server implements Observer<ServerResponseInterface> {
     private readonly _requests = new Subject<Context>();
     private readonly _responses = new Subject<ServerResponseInterface>();
     private _closed: boolean = false;
+    private lastId: number = 0;
 
     constructor(opts: Partial<ServerOpts> = {}) {
         this.opts = Object.assign({}, defaultServerOpts, opts);
@@ -84,15 +85,7 @@ export class Server implements Observer<ServerResponseInterface> {
      */
     listen(addr?: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            let lastId = 0;
-            const srv = http.createServer((req, res) => {
-                const id = (++lastId).toString();
-                dbg("new Request#%d from %s: %s %s", id, req.socket.remoteAddress, req.method, req.url);
-                res.on("finish", () => {
-                    dbg("Request#%d processed", id);
-                });
-                this._requests.next(Context.fromNodeContext(id, { req, res  }));
-            });
+            const srv = http.createServer(this.nodeHttpHandler);
             const [host, port] = (addr || "").split(":");
             const portNum = parseInt(port);
             const parsedAddr: Addr = Object.assign({}, defaultAddr, {
@@ -116,6 +109,17 @@ export class Server implements Observer<ServerResponseInterface> {
                 dbg("stopped");
             });
         });
+    }
+
+    get nodeHttpHandler(): RequestListener {
+        return (req, res) => {
+            const id = (++this.lastId).toString();
+            dbg("new Request#%d from %s: %s %s", id, req.socket.remoteAddress, req.method, req.url);
+            res.on("finish", () => {
+                dbg("Request#%d processed", id);
+            });
+            this._requests.next(Context.fromNodeContext(id, { req, res  }));
+        };
     }
 
     get requests(): Observable<Context> {

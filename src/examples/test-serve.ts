@@ -5,7 +5,7 @@ import {RequestHeader, StatusCode} from "../http";
 import {Router} from "../router";
 import {mergeMap, tap} from "rxjs/operators";
 import {objectFromMap, streamReadAll} from "../helpers";
-import {Context, Response} from "../base";
+import {Context} from "../base";
 
 
 ///////// Defining middlewares
