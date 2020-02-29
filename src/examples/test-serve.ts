@@ -5,15 +5,17 @@ import {
     handle as defHandle, handleErrors,
     handleUnsafe,
     HandlingError,
-    Middleware, Renderer,
+    Middleware,
     RequestHandler,
     RequestHandlerFunc
 } from "../handling";
-import {RequestHeader, ResponseHeader, StatusCode} from "../http";
+import {ResponseHeader, StatusCode} from "../http";
 import {Routed, Router} from "../router";
-import {map, mergeMap, tap} from "rxjs/operators";
+import {map, tap} from "rxjs/operators";
 import {objectFromMap, streamReadAll} from "../helpers";
 import {Context, Response} from "../base";
+import {BodyParsed, CustomResponseData} from "../ext";
+import {parseJson, renderJson} from "../ext/json";
 
 
 ///////// Setting up error handler and overriding default request handle operator
@@ -34,23 +36,6 @@ const printDebugInfo = (): Middleware => source => source.pipe(tap(ctx => {
         console.info("Headers:", objectFromMap(ctx.request.headers.build()));
         body.length && console.info("Body:", body);
     })();
-}));
-
-interface BodyParsed {
-    parsedBody: any;
-}
-
-const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe(mergeMap(async ctx => {
-    if (!ctx.request.headers.has(RequestHeader.ContentType, "application/json")) {
-        throw new HandlingError("Request body should contain JSON-encoded data", ctx, StatusCode.BadRequest);
-    }
-    try {
-        return ctx.withState({
-            parsedBody: JSON.parse(await streamReadAll(ctx.request.body))
-        });
-    } catch (e) {
-        throw new HandlingError(e.message, ctx, StatusCode.BadRequest);
-    }
 }));
 
 ///////// Defining request handlers
@@ -80,10 +65,6 @@ const errorThrowingHandler = (): ResponseLike => {
     throw new Error("test error");
 };
 
-interface CustomResponseData {
-    responseData: any;
-}
-
 interface TimeResponseData extends CustomResponseData {
     responseData: {
         time: string;
@@ -100,9 +81,6 @@ const getTimeHandler = (): Middleware<{}, TimeResponseData> => source => source.
     }))
 );
 
-const renderJson = (): Renderer<CustomResponseData> => source => source.pipe(
-    map(ctx => Response.for(ctx).withJsonBody(ctx.state.responseData))
-);
 
 ///////// Creating server
 
