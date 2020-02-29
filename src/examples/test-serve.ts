@@ -5,13 +5,13 @@ import {
     handle as defHandle, handleErrors,
     handleUnsafe,
     HandlingError,
-    Middleware,
+    Middleware, Renderer,
     RequestHandler,
     RequestHandlerFunc
 } from "../handling";
 import {RequestHeader, ResponseHeader, StatusCode} from "../http";
 import {Routed, Router} from "../router";
-import {mergeMap, tap} from "rxjs/operators";
+import {map, mergeMap, tap} from "rxjs/operators";
 import {objectFromMap, streamReadAll} from "../helpers";
 import {Context, Response} from "../base";
 
@@ -51,7 +51,6 @@ const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe(mergeM
     } catch (e) {
         throw new HandlingError(e.message, ctx, StatusCode.BadRequest);
     }
-
 }));
 
 ///////// Defining request handlers
@@ -81,6 +80,30 @@ const errorThrowingHandler = (): ResponseLike => {
     throw new Error("test error");
 };
 
+interface CustomResponseData {
+    responseData: any;
+}
+
+interface TimeResponseData extends CustomResponseData {
+    responseData: {
+        time: string;
+        ts: number;
+    }
+}
+
+const getTimeHandler = (): Middleware<{}, TimeResponseData> => source => source.pipe(
+    map(ctx => ctx.withState({
+        responseData: {
+            time: (new Date()).toISOString(),
+            ts: Date.now()
+        }
+    }))
+);
+
+const renderJson = (): Renderer<CustomResponseData> => source => source.pipe(
+    map(ctx => Response.for(ctx).withJsonBody(ctx.state.responseData))
+);
+
 ///////// Creating server
 
 const server = listen("localhost:3000");
@@ -102,6 +125,12 @@ router.post("/posts").pipe(
     handle(addPostHandler)
 ).subscribe(server);
 
+router.get("/time").pipe(
+    getTimeHandler(),
+    renderJson(),
+    server.send() // errors will be captured by server.errors stream
+).subscribe();
+
 ///////// Generationg and handling errors:
 
 // option 1:
@@ -118,7 +147,7 @@ router.post("/posts").pipe(
 // // option 3:
 router.get("/error").pipe(
     handleUnsafe(errorThrowingHandler),
-    server.send() // errors will be captured to server.errors stream
+    server.send() // errors will be captured by server.errors stream
 ).subscribe();
 
 ///////// Defining custom error handler:
@@ -131,15 +160,15 @@ server.errors.pipe(
 
 router.unrouted.pipe(
     handleUnsafe(notFoundHandler),
-    server.send() // errors will be captured to server.errors stream
+    server.send() // errors will be captured by server.errors stream
 ).subscribe();
 
 
 ///////// Exiting
 
-// const sigHandler = () => {
-//     console.log("Exiting ...");
-//     server.complete();
-// };
-// process.on('SIGINT', sigHandler);
-// process.on('SIGTERM', sigHandler);
+const sigHandler = () => {
+    console.log("Exiting ...");
+    server.complete();
+};
+process.on('SIGINT', sigHandler);
+process.on('SIGTERM', sigHandler);
