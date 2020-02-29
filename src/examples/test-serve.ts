@@ -2,13 +2,14 @@ import listen from "../server";
 import {ResponseLike} from "../interface";
 import {
     ErrorHandlerFunc,
-    handle as defHandle,
+    handle as defHandle, handleErrors,
+    handleUnsafe,
     HandlingError,
     Middleware,
     RequestHandler,
     RequestHandlerFunc
 } from "../handling";
-import {RequestHeader, StatusCode} from "../http";
+import {RequestHeader, ResponseHeader, StatusCode} from "../http";
 import {Routed, Router} from "../router";
 import {mergeMap, tap} from "rxjs/operators";
 import {objectFromMap, streamReadAll} from "../helpers";
@@ -17,9 +18,9 @@ import {Context, Response} from "../base";
 
 ///////// Setting up error handler and overriding default request handle operator
 
-const errHandler: ErrorHandlerFunc = (err) => Response.for(err.ctx)
+const errHandler: ErrorHandlerFunc = err => Response.for(err.ctx)
     .withStatus(err.httpStatus)
-    .withHeader("Content-Type", "application/json")
+    .withHeader(ResponseHeader.ContentType, "application/json")
     .withJsonBody({ msg: err.message });
 
 const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(defHandle(handler, errHandler));
@@ -101,12 +102,12 @@ router.post("/posts").pipe(
     handle(addPostHandler)
 ).subscribe(server);
 
-///////// Error handling:
+///////// Generationg and handling errors:
 
 // option 1:
-router.get("/error").pipe(
-    handle(errorThrowingHandler),
-).subscribe(server);
+// router.get("/error").pipe(
+//     handle(errorThrowingHandler),
+// ).subscribe(server);
 
 // // option 2:
 // router.get("/error").pipe(
@@ -115,23 +116,30 @@ router.get("/error").pipe(
 // ).subscribe();
 
 // // option 3:
-// router.get("/error").pipe(
-//     handleUnsafe(errorThrowingHandler),
-//     server.send()
-// ).subscribe();
+router.get("/error").pipe(
+    handleUnsafe(errorThrowingHandler),
+    server.send() // errors will be captured to server.errors stream
+).subscribe();
 
+///////// Defining custom error handler:
+
+server.errors.pipe(
+    handleErrors(errHandler)
+).subscribe(server);
 
 ///////// Handling unmatched routes:
 
-router.unrouted.pipe(handle(notFoundHandler)).subscribe(server);
+router.unrouted.pipe(
+    handleUnsafe(notFoundHandler),
+    server.send() // errors will be captured to server.errors stream
+).subscribe();
 
 
 ///////// Exiting
 
-const sigHandler = () => {
-    console.log("Exiting ...");
-    server.complete();
-};
-
-process.on('SIGINT', sigHandler);
-process.on('SIGTERM', sigHandler);
+// const sigHandler = () => {
+//     console.log("Exiting ...");
+//     server.complete();
+// };
+// process.on('SIGINT', sigHandler);
+// process.on('SIGTERM', sigHandler);

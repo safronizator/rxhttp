@@ -3,11 +3,12 @@ import {
     ResponseLike,
     ServerResponseInterface
 } from "./interface";
-import {concat, Observable, of, throwError} from "rxjs";
-import {catchError as rxCatch, map, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
+import {concat, Observable, of, from, throwError} from "rxjs";
+import {catchError, map, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
 import {StatusCode} from "./http";
 
 import { debug } from "./interface";
+
 
 export interface Middleware<T={}, U={}> {
     (source: Observable<Context<T>>): Observable<Context<U>>;
@@ -31,7 +32,11 @@ export interface ResponseHandler {
 
 export interface ErrorHandlerFunc {
     //TODO: support for async result
-    (err: HandlingError): ResponseLike | Promise<ResponseLike>;
+    (err: HandlingError): ResponseLike | Promise<ResponseLike> | void;
+}
+
+export interface ErrorHandler {
+    (source: Observable<HandlingError>): Observable<ServerResponseInterface>;
 }
 
 
@@ -59,20 +64,36 @@ export const handle = <T={}>(handler: RequestHandlerFunc<T>, errHandler?: ErrorH
     catchErrors(errHandler)
 );
 
+export const handleErrors = (handler: ErrorHandlerFunc): ErrorHandler => source => source.pipe(
+    mergeMap(async err => {
+        const r = await handler(err);
+        if (!r) {
+            //TODO: should we not allow void handlers in this case?
+            throw err;
+        }
+        return Response.from(r, err.ctx);
+    })
+);
+
 const defErrHandler: ErrorHandlerFunc = err => Response.for(err.ctx).withBody(err.message).withStatus(err.httpStatus);
 
 export const catchErrors = (handler: ErrorHandlerFunc = defErrHandler): ResponseHandler => source => {
     const dbg = debug.extend("catchErrors");
     return source.pipe(
         shareReplay(),
-        rxCatch((err: HandlingError) => {
+        catchError((err: HandlingError) => {
             //TODO: check err is not an instance of HandlingError
             dbg("error catched while handling Request#%d: %s", err.ctx.id, err.message);
             //TODO: log
+            const r = handler(err);
+            const thrower = throwError(err);
+            if (!r) {
+                return thrower;
+            }
+            const subst: Observable<ResponseLike> = (r instanceof Promise) ? from(r) : of(r);
             return concat(
-                //TODO: support for async handler
-                of(handler(err)).pipe(mergeMap(async r => Response.from(await r, err.ctx))),
-                throwError(err)
+                subst.pipe(map(r => Response.from(r, err.ctx))),
+                thrower
             );
         }),
         retryWhen(errors => errors.pipe(

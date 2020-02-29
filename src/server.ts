@@ -86,7 +86,7 @@ export class Server implements Observer<ServerResponseInterface> {
      */
     listen(addr?: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
-            const srv = http.createServer(this.nodeHttpHandler);
+            const srv = http.createServer(this.requestListener);
             const [host, port] = (addr || "").split(":");
             const portNum = parseInt(port);
             const parsedAddr: Addr = Object.assign({}, defaultAddr, {
@@ -112,7 +112,7 @@ export class Server implements Observer<ServerResponseInterface> {
         });
     }
 
-    get nodeHttpHandler(): RequestListener {
+    get requestListener(): RequestListener {
         return (req, res) => {
             const id = (++this.lastId).toString();
             dbg("new Request#%d from %s: %s %s", id, req.socket.remoteAddress, req.method, req.url);
@@ -137,8 +137,16 @@ export class Server implements Observer<ServerResponseInterface> {
 
     send(): ResponseHandler {
         return source => source.pipe(
-            catchErrors(),
+            this.captureErrors(),
             tap(r => this.next(r))
+        );
+    }
+
+    captureErrors(): ResponseHandler {
+        return source => source.pipe(
+            catchErrors(err => {
+                this._errors.next(err);
+            })
         );
     }
 
