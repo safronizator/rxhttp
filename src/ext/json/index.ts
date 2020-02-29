@@ -1,7 +1,7 @@
 import {map, mergeMap} from "rxjs/operators";
 import {HandlingError, Middleware, Renderer} from "../../handling";
 import {RequestHeader, StatusCode} from "../../http";
-import {streamReadAll} from "../../helpers";
+import {streamReadAllToString} from "../../helpers";
 import {BodyParsed, CustomResponseData} from "../common";
 import {Response} from "../../base";
 
@@ -12,7 +12,7 @@ export const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe
     }
     try {
         return ctx.withState({
-            parsedBody: JSON.parse(await streamReadAll(ctx.request.body))
+            parsedBody: JSON.parse(await streamReadAllToString(ctx.request.body))
         });
     } catch (e) {
         throw new HandlingError(e.message, ctx, StatusCode.BadRequest);

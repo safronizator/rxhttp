@@ -12,7 +12,7 @@ import {
 import {ResponseHeader, StatusCode} from "../http";
 import {Routed, Router} from "../router";
 import {map, tap} from "rxjs/operators";
-import {objectFromMap, streamReadAll} from "../helpers";
+import {objectFromMap, streamReadAllToString} from "../helpers";
 import {Context, Response} from "../base";
 import {BodyParsed, CustomResponseData} from "../ext";
 import {parseJson, renderJson} from "../ext/json";
@@ -31,7 +31,7 @@ const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => sour
 
 const printDebugInfo = (): Middleware => source => source.pipe(tap(ctx => {
     (async () => {
-        const body = (await streamReadAll(ctx.request.body)).trim();
+        const body = (await streamReadAllToString(ctx.request.body)).trim();
         console.info(`New request to ${ctx.request.url}:`);
         console.info("Headers:", objectFromMap(ctx.request.headers.build()));
         body.length && console.info("Body:", body);

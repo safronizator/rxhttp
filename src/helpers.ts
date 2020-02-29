@@ -37,15 +37,19 @@ export function objectFromMap<T>(m: Map<string, T>): { [key: string]: T } {
     return obj;
 }
 
-export function streamReadAll(stream: ReadableStream): Promise<string> {
-    return new Promise<string>((resolve, reject) => {
-        const chunks = new Array<string>();
+export function streamReadAll(stream: ReadableStream): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+        const chunks = new Array<Buffer>();
         stream.on('data', (chunk) => {
-            chunks.push(chunk.toString());
+            chunks.push(chunk);
         });
-        stream.on('end', () => {
-            resolve(chunks.join(''));
+        stream.once('end', () => {
+            resolve(Buffer.concat(chunks));
         });
-        stream.on('error', reject);
+        stream.once('error', reject);
     });
+}
+
+export async function streamReadAllToString(stream: ReadableStream, encoding = "utf8"): Promise<string> {
+    return (await streamReadAll(stream)).toString(encoding);
 }
