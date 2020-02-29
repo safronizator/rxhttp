@@ -11,11 +11,11 @@ import {
 } from "../handling";
 import {ResponseHeader, StatusCode} from "../http";
 import {Routed, Router} from "../router";
-import {map, tap} from "rxjs/operators";
-import {objectFromMap, streamReadAllToString} from "../helpers";
+import {map} from "rxjs/operators";
 import {Context, Response} from "../base";
 import {BodyParsed, CustomResponseData} from "../ext";
 import {parseJson, renderJson} from "../ext/json";
+import {dumpRequests} from "../ext/debug";
 
 
 ///////// Setting up error handler and overriding default request handle operator
@@ -27,16 +27,6 @@ const errHandler: ErrorHandlerFunc = err => Response.for(err.ctx)
 
 const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(defHandle(handler, errHandler));
 
-///////// Defining middlewares
-
-const printDebugInfo = (): Middleware => source => source.pipe(tap(ctx => {
-    (async () => {
-        const body = (await streamReadAllToString(ctx.request.body)).trim();
-        console.info(`New request to ${ctx.request.url}:`);
-        console.info("Headers:", objectFromMap(ctx.request.headers.build()));
-        body.length && console.info("Body:", body);
-    })();
-}));
 
 ///////// Defining request handlers
 
@@ -81,7 +71,6 @@ const getTimeHandler = (): Middleware<{}, TimeResponseData> => source => source.
     }))
 );
 
-
 ///////// Creating server
 
 const server = listen("localhost:3000");
@@ -89,7 +78,7 @@ const server = listen("localhost:3000");
 ///////// Setting up common middlewares:
 
 const requests = server.requests.pipe(
-    printDebugInfo()
+    dumpRequests({ printBody: true })
 );
 
 ///////// Routes:
