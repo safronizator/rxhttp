@@ -16,3 +16,7 @@ Simple web framework for Node.js bringing power of RxJS to your HTTP server
 
 npm i @safronizator/rxhttp
 ```
+
+## Usage example
+
+_See [examples](./src/examples) and [tests](./test)_
