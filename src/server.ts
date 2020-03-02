@@ -23,15 +23,6 @@ const defaultAddr: Addr = {
     port: DefaultPort
 };
 
-interface ServerOpts {
-
-}
-
-const defaultServerOpts: ServerOpts = {
-
-};
-
-
 function flushResponse(r: ServerResponseInterface): void {
     const res = r.context.original.res;
     res.statusCode = r.status;
@@ -51,15 +42,13 @@ function flushResponse(r: ServerResponseInterface): void {
 
 export class Server implements Observer<ServerResponseInterface> {
 
-    private readonly opts: ServerOpts;
     private readonly _requests = new Subject<Context>();
     private readonly _responses = new Subject<ServerResponseInterface>();
     private readonly _errors = new Subject<HandlingError>();
     private _closed: boolean = false;
     private lastId: number = 0;
 
-    constructor(opts: Partial<ServerOpts> = {}) {
-        this.opts = Object.assign({}, defaultServerOpts, opts);
+    constructor() {
         this._responses.subscribe({
             next: flushResponse
             //TODO: handle errors?
@@ -77,17 +66,14 @@ export class Server implements Observer<ServerResponseInterface> {
     }
 
     error(err: any): void {
-        //TODO: what should we do here?
+        console.error("Server: error caught in subscription:", err);
+        //TODO: what else should we do here?
     }
 
     next(r: ServerResponseInterface): void {
         this._responses.next(r);
     }
 
-    /**
-     * @todo remove tmp debug output
-     * @param addr
-     */
     listen(addr?: string): Promise<void> {
         return new Promise<void>((resolve, reject) => {
             const srv = http.createServer(this.requestListener);
@@ -154,9 +140,25 @@ export class Server implements Observer<ServerResponseInterface> {
 
 }
 
+interface ServerInterface {
+    send(): ResponseHandler;
+    requests: Observable<Context>;
+    errors: Observable<HandlingError>;
+    requestListener: RequestListener;
+}
 
-export default function listen(addr: string, opts: Partial<ServerOpts> = {}): Server {
-    const server = new Server(opts);
+export function serve(): ServerInterface {
+    const srv = new Server();
+    return {
+        send: srv.send.bind(srv),
+        requests: srv.requests,
+        errors: srv.errors,
+        requestListener: srv.requestListener
+    };
+}
+
+export default function listen(addr: string): Server {
+    const server = new Server();
     server.listen(addr).catch(err => console.error(err)); //TODO: handle
     return server;
 };
