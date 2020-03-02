@@ -1,5 +1,5 @@
 import request from "supertest";
-import {RequestHeader, Router, serve, Server, StatusCode} from "../../src";
+import serve, {RequestHeader, Router, StatusCode} from "../../src";
 import {map} from "rxjs/operators";
 import {parseIfJson, parseJson, renderJson} from "../../src/ext/json";
 

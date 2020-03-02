@@ -1,4 +1,4 @@
-import listen from "../server";
+import { listen } from "../server";
 import {ResponseLike} from "../interface";
 import {
     handle as defHandle, handleErrors,
@@ -13,14 +13,15 @@ import {Routed, Router} from "../router";
 import {map} from "rxjs/operators";
 import {Context} from "../base";
 import {BodyParsed, CustomResponseData} from "../ext";
-import {errorHandler, parseJson, renderJson} from "../ext/json";
+import {errorHandler as errorsAsJson, parseJson, renderJson} from "../ext/json";
 import {dumpRequests} from "../ext/debug";
 
 
 ///////// Setting up error handler and overriding default request handle operator
 
-
-const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(defHandle(handler, errorHandler));
+const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(
+    defHandle(handler, errorsAsJson)
+);
 
 
 ///////// Defining request handlers
@@ -68,29 +69,32 @@ const getTimeHandler = (): Middleware<{}, TimeResponseData> => source => source.
 
 ///////// Creating server
 
-const server = listen("localhost:3000");
+const { requests, close, send, errors, ready } = listen("localhost:3000");
+
+ready.then(() => console.log("Server is listening")).catch(err => console.error("Error starting server:", err));
 
 ///////// Setting up common middlewares:
 
-const requests = server.requests.pipe(
+const dumpedRequests = requests.pipe(
     dumpRequests({ printBody: true })
 );
 
 ///////// Routes:
 
-const router = new Router(requests);
-
-router.get("/posts/:id").pipe(handle(getPostHandler)).subscribe(server);
+const router = new Router(dumpedRequests);
 
 router.post("/posts").pipe(
-    parseJson(),         // middleware applied to only this one route
-    handle(addPostHandler)
-).subscribe(server);
+    parseJson(),             // middleware applied to only this one route
+    handle(addPostHandler),  // maps Context to Response
+    send()                   // tells server Response is ready to send
+).subscribe();
+
+router.get("/posts/:id").pipe(handle(getPostHandler), send()).subscribe();
 
 router.get("/time").pipe(
     getTimeHandler(),
     renderJson(),
-    server.send() // errors will be captured by server.errors stream
+    send()
 ).subscribe();
 
 ///////// Generationg and handling errors:
@@ -104,25 +108,26 @@ router.get("/time").pipe(
 // router.get("/error").pipe(
 //     handleUnsafe(errorThrowingHandler),
 //     catchErrors()
-// ).subscribe();
+// ).subscribe(server);
 
 // // option 3:
 router.get("/error").pipe(
     handleUnsafe(errorThrowingHandler),
-    server.send() // errors will be captured by server.errors stream
+    send() // errors will be captured by server.errors stream
 ).subscribe();
 
 ///////// Defining custom error handler:
 
-server.errors.pipe(
-    handleErrors(errorHandler)
-).subscribe(server);
+errors.pipe(
+    handleErrors(errorsAsJson),
+    send()
+).subscribe();
 
 ///////// Handling unmatched routes:
 
 router.unrouted.pipe(
     handleUnsafe(notFoundHandler),
-    server.send() // errors will be captured by server.errors stream
+    send()
 ).subscribe();
 
 
@@ -130,7 +135,7 @@ router.unrouted.pipe(
 
 const sigHandler = () => {
     console.log("Exiting ...");
-    server.complete();
+    close();
 };
 process.on('SIGINT', sigHandler);
 process.on('SIGTERM', sigHandler);

@@ -1,4 +1,4 @@
-import {Observable, Observer, Subject} from "rxjs";
+import {NextObserver, Observable, Subject} from "rxjs";
 import {
     DefaultHost, DefaultPort,
     isReadableStream,
@@ -40,7 +40,7 @@ function flushResponse(r: ServerResponseInterface): void {
 }
 
 
-export class Server implements Observer<ServerResponseInterface> {
+export class Server implements NextObserver<ServerResponseInterface> {
 
     private readonly _requests = new Subject<Context>();
     private readonly _responses = new Subject<ServerResponseInterface>();
@@ -50,8 +50,8 @@ export class Server implements Observer<ServerResponseInterface> {
 
     constructor() {
         this._responses.subscribe({
-            next: flushResponse
-            //TODO: handle errors?
+            next: flushResponse,
+            complete: () => { this._requests.complete() }
         });
     }
 
@@ -59,45 +59,13 @@ export class Server implements Observer<ServerResponseInterface> {
         return this._closed;
     }
 
-    complete(): void {
+    close(): void {
         this._closed = true;
-        this._requests.complete();
         this._responses.complete();
-    }
-
-    error(err: any): void {
-        console.error("Server: error caught in subscription:", err);
-        //TODO: what else should we do here?
     }
 
     next(r: ServerResponseInterface): void {
         this._responses.next(r);
-    }
-
-    listen(addr?: string): Promise<void> {
-        return new Promise<void>((resolve, reject) => {
-            const srv = http.createServer(this.requestListener);
-            const [host, port] = (addr || "").split(":");
-            const portNum = parseInt(port);
-            const parsedAddr: Addr = Object.assign({}, defaultAddr, {
-                host,
-                port: isNaN(portNum) ? DefaultPort : portNum
-            });
-            srv.listen(parsedAddr.port, parsedAddr.host, () => {
-                dbg("listening %s:%d", parsedAddr.host, parsedAddr.port);
-                this._responses.subscribe({
-                    complete: () => srv.close()
-                });
-                resolve();
-            });
-            srv.on("error", err => {
-                dbg("error listening %s: %s", addr, err);
-                reject(err);
-            });
-            srv.on("close", () => {
-                dbg("stopped");
-            });
-        });
     }
 
     get requestListener(): RequestListener {
@@ -142,23 +110,54 @@ export class Server implements Observer<ServerResponseInterface> {
 
 interface ServerInterface {
     send(): ResponseHandler;
+    close(): void;
     requests: Observable<Context>;
+    responses: Observable<ServerResponseInterface>;
     errors: Observable<HandlingError>;
     requestListener: RequestListener;
 }
 
-export function serve(): ServerInterface {
+export default function serve(): ServerInterface {
     const srv = new Server();
     return {
         send: srv.send.bind(srv),
+        close: srv.close.bind(srv),
         requests: srv.requests,
+        responses: srv.responses,
         errors: srv.errors,
         requestListener: srv.requestListener
     };
 }
 
-export default function listen(addr: string): Server {
-    const server = new Server();
-    server.listen(addr).catch(err => console.error(err)); //TODO: handle
-    return server;
+interface ListenerInterface extends ServerInterface {
+    ready: Promise<void>;
+}
+
+export function listen(addr: string): ListenerInterface {
+    const srv = serve();
+    const httpSrv = http.createServer(srv.requestListener);
+    const [host, port] = (addr || "").split(":");
+    const portNum = parseInt(port);
+    const parsedAddr: Addr = Object.assign({}, defaultAddr, {
+        host,
+        port: isNaN(portNum) ? DefaultPort : portNum
+    });
+    const ready = new Promise<void>((resolve, reject) => {
+        httpSrv.once("error", err => {
+            dbg("error listening %s: %s", addr, err);
+            reject(err);
+        });
+        httpSrv.listen(parsedAddr.port, parsedAddr.host, () => {
+            dbg("listening %s:%d", parsedAddr.host, parsedAddr.port);
+            srv.responses.subscribe({
+                complete: () => httpSrv.close()
+            });
+            resolve();
+        });
+    });
+    httpSrv.once("close", () => {
+        dbg("stopped");
+    });
+    return { ...srv, ready };
+
 };
