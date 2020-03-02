@@ -60,6 +60,10 @@ export class Server implements Observer<ServerResponseInterface> {
 
     constructor(opts: Partial<ServerOpts> = {}) {
         this.opts = Object.assign({}, defaultServerOpts, opts);
+        this._responses.subscribe({
+            next: flushResponse
+            //TODO: handle errors?
+        });
     }
 
     get closed(): boolean {
@@ -96,9 +100,7 @@ export class Server implements Observer<ServerResponseInterface> {
             srv.listen(parsedAddr.port, parsedAddr.host, () => {
                 dbg("listening %s:%d", parsedAddr.host, parsedAddr.port);
                 this._responses.subscribe({
-                    next: flushResponse,
                     complete: () => srv.close()
-                    //TODO: handle errors?
                 });
                 resolve();
             });
