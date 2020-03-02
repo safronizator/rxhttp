@@ -1,7 +1,6 @@
 import listen from "../server";
 import {ResponseLike} from "../interface";
 import {
-    ErrorHandlerFunc,
     handle as defHandle, handleErrors,
     handleUnsafe,
     HandlingError,
@@ -9,28 +8,24 @@ import {
     RequestHandler,
     RequestHandlerFunc
 } from "../handling";
-import {ResponseHeader, StatusCode} from "../http";
+import {StatusCode} from "../http";
 import {Routed, Router} from "../router";
 import {map} from "rxjs/operators";
-import {Context, Response} from "../base";
+import {Context} from "../base";
 import {BodyParsed, CustomResponseData} from "../ext";
-import {parseJson, renderJson} from "../ext/json";
+import {errorHandler, parseJson, renderJson} from "../ext/json";
 import {dumpRequests} from "../ext/debug";
 
 
 ///////// Setting up error handler and overriding default request handle operator
 
-const errHandler: ErrorHandlerFunc = err => Response.for(err.ctx)
-    .withStatus(err.httpStatus)
-    .withHeader(ResponseHeader.ContentType, "application/json")
-    .withJsonBody({ msg: err.message });
 
-const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(defHandle(handler, errHandler));
+const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(defHandle(handler, errorHandler));
 
 
 ///////// Defining request handlers
 
-let id = 0;
+let postId = 0;
 
 const getPostHandler = (ctx: Context<Routed>): ResponseLike => ctx.reply()
     .withJsonBody({ id: ctx.state.router.id, title: "Some post" });
@@ -41,7 +36,7 @@ const addPostHandler = (ctx: Context<BodyParsed>): ResponseLike => {
         throw new HandlingError("Missing required field: title", ctx, StatusCode.BadRequest);
     }
     return ctx.reply().withJsonBody({
-        id: ++id,
+        id: ++postId,
         title: contents.title
     }).withStatus(StatusCode.Created);
 };
@@ -120,7 +115,7 @@ router.get("/error").pipe(
 ///////// Defining custom error handler:
 
 server.errors.pipe(
-    handleErrors(errHandler)
+    handleErrors(errorHandler)
 ).subscribe(server);
 
 ///////// Handling unmatched routes:

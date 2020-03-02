@@ -1,5 +1,5 @@
 import {map, mergeMap} from "rxjs/operators";
-import {HandlingError, Middleware, Renderer} from "../../handling";
+import {ErrorHandlerFunc, HandlingError, Middleware, Renderer} from "../../handling";
 import {RequestHeader, StatusCode} from "../../http";
 import {streamReadAllToString} from "../../helpers";
 import {BodyParsed, CustomResponseData} from "../common";
@@ -23,3 +23,7 @@ export const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe
 export const renderJson = (): Renderer<CustomResponseData> => source => source.pipe(
     map(ctx => Response.for(ctx).withJsonBody(ctx.state.responseData))
 );
+
+export const errorHandler: ErrorHandlerFunc = err => Response.for(err.ctx)
+    .withStatus(err.httpStatus)
+    .withJsonBody({ msg: err.message, status: err.httpStatus });

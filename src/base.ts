@@ -312,7 +312,7 @@ export class Context<T={}> implements ContextInterface<T> {
     /**
      * @todo: set proper result type
      */
-    withStateField<U>(name: string, value: U) /*: Context<T & { [prop in typeof name]: U }> */ {
+    withStateField<U>(name: string, value: U) /*: Context<T & { [name]: U }> */ {
         const { id, original, state, request } = this;
         return new Context(id, {
             state: { ...state, [name]: value },
