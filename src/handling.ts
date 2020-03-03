@@ -3,7 +3,7 @@ import {
     ResponseLike,
     ServerResponseInterface
 } from "./interface";
-import {concat, Observable, of, from, throwError} from "rxjs";
+import {concat, Observable, of, from, throwError, Observer, NextObserver} from "rxjs";
 import {catchError, map, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
 import {StatusCode} from "./http";
 
@@ -75,17 +75,22 @@ export const handleErrors = (handler: ErrorHandlerFunc): ErrorHandler => source 
     })
 );
 
+const isNextObserver = (x: any): x is NextObserver<any> => {
+    return x.next !== undefined && typeof x.next === "function";
+};
+
 const defErrHandler: ErrorHandlerFunc = err => Response.for(err.ctx).withBody(err.message).withStatus(err.httpStatus);
 
-export const catchErrors = (handler: ErrorHandlerFunc = defErrHandler): ResponseHandler => source => {
+export const catchErrors = (handler: ErrorHandlerFunc | Observer<HandlingError> = defErrHandler): ResponseHandler => source => {
     const dbg = debug.extend("catchErrors");
+    const cb: ErrorHandlerFunc = isNextObserver(handler) ? (err) => handler.next(err) : handler as ErrorHandlerFunc;
     return source.pipe(
         shareReplay(),
         catchError((err: HandlingError) => {
             //TODO: check err is not an instance of HandlingError
             dbg("error catched while handling Request#%d: %s", err.ctx.id, err.message);
             //TODO: log
-            const r = handler(err);
+            const r = cb(err);
             const thrower = throwError(err);
             if (!r) {
                 return thrower;

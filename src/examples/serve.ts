@@ -1,4 +1,4 @@
-import { listen } from "../server";
+import listen from "../server";
 import {ResponseLike} from "../interface";
 import {
     handle as defHandle, handleErrors,
@@ -17,7 +17,7 @@ import {errorHandler as errorsAsJson, parseJson, renderJson} from "../ext/json";
 import {dumpRequests} from "../ext/debug";
 
 
-///////// Setting up error handler and overriding default request handle operator
+///////// Overriding default request handle operator - just convert errors to JSON
 
 const handle = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(
     defHandle(handler, errorsAsJson)
@@ -69,9 +69,12 @@ const getTimeHandler = (): Middleware<{}, TimeResponseData> => source => source.
 
 ///////// Creating server
 
-const { requests, close, send, errors, ready } = listen("localhost:3000");
+const { isListening, requests, responses, errors, send } = listen("localhost:3000");
 
-ready.then(() => console.log("Server is listening")).catch(err => console.error("Error starting server:", err));
+isListening.then(
+    () => console.log("Server is listening"),
+    err => console.error("Error starting server:", err)
+);
 
 ///////// Setting up common middlewares:
 
@@ -86,56 +89,54 @@ const router = new Router(dumpedRequests);
 router.post("/posts").pipe(
     parseJson(),             // middleware applied to only this one route
     handle(addPostHandler),  // maps Context to Response
-    send()                   // tells server Response is ready to send
-).subscribe();
+).subscribe(responses);
 
-router.get("/posts/:id").pipe(handle(getPostHandler), send()).subscribe();
+router.get("/posts/:id").pipe(handle(getPostHandler)).subscribe(responses);
 
 router.get("/time").pipe(
     getTimeHandler(),
     renderJson(),
-    send()
-).subscribe();
+).subscribe(responses);
 
-///////// Generationg and handling errors:
+///////// Generating and handling errors:
 
 // option 1:
 // router.get("/error").pipe(
-//     handle(errorThrowingHandler),
-// ).subscribe(server);
+//     handle(errorThrowingHandler)        // also hanling errors by default (or overriden) handler
+// ).subscribe(responses);
 
 // // option 2:
+// const errors = new Subject<HandlingError>();
 // router.get("/error").pipe(
 //     handleUnsafe(errorThrowingHandler),
-//     catchErrors()
-// ).subscribe(server);
+//     catchErrors(errors)                 // catch errors and send it to errors stream manually
+// ).subscribe(responses);
 
-// // option 3:
+// option 3:
 router.get("/error").pipe(
     handleUnsafe(errorThrowingHandler),
-    send() // errors will be captured by server.errors stream
+    send()                                 // also catching errors and sending it to errors stream
 ).subscribe();
 
-///////// Defining custom error handler:
+///////// Defining common error handler
 
 errors.pipe(
-    handleErrors(errorsAsJson),
-    send()
-).subscribe();
+    handleErrors(errorsAsJson)
+).subscribe(responses);
+
 
 ///////// Handling unmatched routes:
 
 router.unrouted.pipe(
-    handleUnsafe(notFoundHandler),
-    send()
-).subscribe();
+    handle(notFoundHandler)
+).subscribe(responses);
 
 
 ///////// Exiting
 
 const sigHandler = () => {
     console.log("Exiting ...");
-    close();
+    responses.complete();
 };
 process.on('SIGINT', sigHandler);
 process.on('SIGTERM', sigHandler);

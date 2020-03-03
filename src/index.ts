@@ -1,4 +1,4 @@
-import serve from "./server";
+import listen from "./server";
 
 export * from "./interface";
 export * from "./http";
@@ -7,4 +7,4 @@ export * from "./server";
 export * from "./handling";
 export * from "./router";
 
-export default serve;
+export default listen;
