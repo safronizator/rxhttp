@@ -16,70 +16,70 @@ const subscribe = (fmv: FMWInstance, src: Observable<Context>): Subscription => 
     });
 };
 
-const addRoute = (fmv: FMWInstance, method: Method, path: string): Observable<Context<Routed>> => {
-    const routed = new Subject<Context<Routed>>();
-    fmv.on(method, path, function (this: Context, req, res, params) {
+const addRoute = <T>(fmv: FMWInstance, method: Method, path: string): Observable<Context<T & Routed>> => {
+    const routed = new Subject<Context<T & Routed>>();
+    fmv.on(method, path, function (this: Context<T>, req, res, params) {
         routed.next(Context.from(this).withState({ router: params }));
     });
     return routed;
 };
 
-export class Router {
+export class Router<T={}> {
 
     private readonly r: FMWInstance;
-    private readonly _unrouted = new Subject<Context>();
+    private readonly _unrouted = new Subject<Context<T>>();
     private subscription?: Subscription;
 
-    constructor(private readonly src: Observable<Context>) {
+    constructor(private readonly src: Observable<Context<T>>) {
         const unrouted = this._unrouted;
         this.r = FMW({
-            defaultRoute: function (this: Context) {
+            defaultRoute: function (this: Context<T>) {
                 unrouted.next(this);
             }
         });
     }
 
-    route(method: Method, path: string): Observable<Context<Routed>> {
+    route(method: Method, path: string): Observable<Context<T & Routed>> {
         if (!this.subscription) {
             this.subscription = subscribe(this.r, this.src);
         }
         return addRoute(this.r, method, path);
     }
 
-    get(path: string): Observable<Context<Routed>> {
+    get(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Get, path);
     }
 
-    put(path: string): Observable<Context<Routed>> {
+    put(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Put, path);
     }
 
-    post(path: string): Observable<Context<Routed>> {
+    post(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Post, path);
     }
 
-    delete(path: string): Observable<Context<Routed>> {
+    delete(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Delete, path);
     }
 
-    head(path: string): Observable<Context<Routed>> {
+    head(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Head, path);
     }
 
-    options(path: string): Observable<Context<Routed>> {
+    options(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Options, path);
     }
 
-    patch(path: string): Observable<Context<Routed>> {
+    patch(path: string): Observable<Context<T & Routed>> {
         return this.route(Method.Patch, path);
     }
 
-    all(path: string): Observable<Context<Routed>> {
+    all(path: string): Observable<Context<T & Routed>> {
         //TODO: implement
         throw new Error("Not implemented");
     }
 
-    get unrouted(): Subject<Context> {
+    get unrouted(): Subject<Context<T>> {
         return this._unrouted;
     }
 }

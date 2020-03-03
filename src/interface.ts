@@ -45,10 +45,6 @@ export function isReadableStream(data: any): data is ReadableStream {
     return typeof data.read === "function" && typeof data.readable === "boolean";
 }
 
-// export interface StateContainer {
-//     [key: string]: any;
-// }
-
 export type StateContainer<T={}> = T & { [key: string]: any };
 
 export interface NodeHttpContext {

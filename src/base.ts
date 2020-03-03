@@ -56,7 +56,7 @@ class HeadersContainer implements Headers {
     }
 
     getValue(name: string): string|undefined {
-        const vals = this.h.get(name);
+        const vals = this.h.get(name) || this.h.get(name.toLowerCase()); //TODO: should be set only in one format?
         if (vals === undefined) {
             return vals;
         }
@@ -273,7 +273,7 @@ export class Context<T={}> implements ContextInterface<T> {
         });
     }
 
-    static from<T>(context: ContextInterface<T>): Context {
+    static from<T>(context: ContextInterface<T>): Context<T> {
         if (context instanceof Context) {
             return context;
         }

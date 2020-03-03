@@ -86,12 +86,15 @@ export const catchErrors = (handler: ErrorHandlerFunc | Observer<HandlingError> 
     const cb: ErrorHandlerFunc = isNextObserver(handler) ? (err) => handler.next(err) : handler as ErrorHandlerFunc;
     return source.pipe(
         shareReplay(),
-        catchError((err: HandlingError) => {
-            //TODO: check err is not an instance of HandlingError
+        catchError((err: Error) => {
+            const thrower = throwError(err);
+            if (!(err instanceof HandlingError)) {
+                console.error("Error was throwed during handling, but it's not an instance of HandlingError (you should avoid such situation):", err);
+                return thrower;
+            }
             dbg("error catched while handling Request#%d: %s", err.ctx.id, err.message);
             //TODO: log
             const r = cb(err);
-            const thrower = throwError(err);
             if (!r) {
                 return thrower;
             }
