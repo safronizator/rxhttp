@@ -4,8 +4,8 @@ export interface SessionManager {
 }
 
 export interface SessionStorage {
-    load(sid: string): SessionManager | undefined;
-    create(sid: string): SessionManager;
+    load(sid: string): Promise<SessionManager | void>;
+    create(sid: string): Promise<SessionManager>;
 }
 
 export interface WithSession {

@@ -15,13 +15,13 @@ const getDefStorage = (): SessionStorage => {
     return defStorage;
 };
 
-const loadOrCreate = (storage: SessionStorage, sid: string): { sid: string, session: SessionManager } => {
-    const session = storage.load(sid);
+const loadOrCreate = async (storage: SessionStorage, sid: string): Promise<{ sid: string, session: SessionManager }> => {
+    const session = await storage.load(sid);
     if (session) {
         return { sid, session };
     }
     const newKey = uniqid();
-    return { sid: newKey, session: storage.create(newKey) };
+    return { sid: newKey, session: await storage.create(newKey) };
 };
 
 /**
@@ -31,10 +31,9 @@ const loadOrCreate = (storage: SessionStorage, sid: string): { sid: string, sess
 const startSession = <T>(storage: SessionStorage = getDefStorage()): Middleware<T, T & WithCookies & WithSession> => source => {
     return source.pipe(
         useCookies(), //TODO: options?
-        //TODO: make storage async [or switch to map()]
         mergeMap(async ctx => {
             const receivedId = ctx.state.cookies["sid"]; //TODO: hardcoded key!
-            const {session, sid} = loadOrCreate(storage, receivedId);
+            const {session, sid} = await loadOrCreate(storage, receivedId);
             ctx.state.setCookie("sid", sid); //TODO: remove hardcode; add expiration and other opts
             return ctx.withState({session});
         })

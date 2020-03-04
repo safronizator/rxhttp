@@ -9,13 +9,13 @@ export default class Storage implements SessionStorage {
         this.data = data;
     }
 
-    create(sid: string): SessionManager {
+    async create(sid: string): Promise<SessionManager> {
         const session = new Map<string, any>();
         this.data.set(sid, session);
         return session;
     }
 
-    load(sid: string): SessionManager | undefined {
+    async load(sid: string): Promise<SessionManager | void> {
         return this.data.get(sid);
     }
 
