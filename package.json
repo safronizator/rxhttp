@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "npm run compile && npm run mocha",
-    "dev": "DEBUG=rxhttp.* ts-node-dev --no-notify src/examples/test-serve.ts",
+    "dev": "DEBUG=rxhttp.* ts-node-dev --no-notify src/examples/serve.ts",
     "mocha": "ts-mocha \"test/**/*.ts\" --recursive --exit",
     "compile": "shx rm -rf dist/ && tsc",
     "dist-make": "tsc --outDir . && shx rm -rf examples/",
