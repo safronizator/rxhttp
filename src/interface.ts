@@ -1,5 +1,5 @@
 import {Method, StatusCode} from "./http";
-import {IncomingMessage, ServerResponse} from "http";
+import {IncomingMessage, ServerResponse as NodeServerResponse} from "http";
 import ReadableStream = NodeJS.ReadableStream;
 import debugFactory from "debug";
 
@@ -35,21 +35,17 @@ export interface ResponseInterface extends Partial<HttpMessageInterface> {
     reason?: string;
 }
 
-export type ResponseLike = StatusCode|BodyLike|ResponseInterface;
-
 export function isResponseInterface(data: any): data is ResponseInterface {
     return typeof data.status === "number" && data.status >= 100 && data.status < 600;
 }
 
-export function isReadableStream(data: any): data is ReadableStream {
-    return typeof data.read === "function" && typeof data.readable === "boolean";
-}
+export type ResponseLike = StatusCode|BodyLike|ResponseInterface;
 
 export type StateContainer<T={}> = T & { [key: string]: any };
 
 export interface NodeHttpContext {
     req: IncomingMessage;
-    res: ServerResponse;
+    res: NodeServerResponse;
 }
 
 export interface RequestInterface extends HttpMessageInterface {
@@ -59,13 +55,22 @@ export interface RequestInterface extends HttpMessageInterface {
     body: ReadableStream;
 }
 
-export interface ServerResponseInterface extends ResponseInterface {
-    context: ContextInterface;
-}
-
-export interface ContextInterface<T={}> {
+export interface RequestContext {
     id: Id;
     original: NodeHttpContext;
-    state: StateContainer<T>;
     request: RequestInterface;
+}
+
+export interface ServerResponse extends ResponseInterface {
+    context: RequestContext; //TODO: change to Context?
+    withStatus(status: StatusCode, reasonMsg?: string): ServerResponse;
+    withHeader(name: string, values: string | string[]): ServerResponse;
+    withBody(body: BodyLike): ServerResponse;
+    withJsonBody(data: any): ServerResponse;
+}
+
+export interface Context<T={}> extends RequestContext {
+    state: StateContainer<T>;
+    reply(body?: BodyLike): ServerResponse;
+    withState<U>(s: StateContainer<U>): Context<T & U>;
 }

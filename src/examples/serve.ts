@@ -11,7 +11,7 @@ import {
 import {StatusCode} from "../http";
 import {Routed, Router} from "../router";
 import {map} from "rxjs/operators";
-import {Context} from "../base";
+import {Context} from "../interface";
 import {BodyParsed, CustomResponseData} from "../ext";
 import {errorHandler as errorsAsJson, parseJson, renderJson} from "../ext/json";
 import {dumpRequests} from "../ext/debug";

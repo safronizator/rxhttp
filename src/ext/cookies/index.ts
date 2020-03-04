@@ -1,8 +1,8 @@
 import {Middleware, passThrough, ResponseHandler} from "../../handling";
 import {map} from "rxjs/operators";
-import {Context, Response} from "../../base";
+import Response from "../../response";
 import {RequestHeader, ResponseHeader} from "../../http";
-import {ContextInterface} from "../../interface";
+import {Context, RequestContext} from "../../interface";
 import cookie from "cookie";
 import { debug as commonDebug } from "../common";
 
@@ -32,8 +32,9 @@ export interface WithCookies {
     setCookie(name: string, value?: string, opts?: CookieOpts): void;
 }
 
-export function areCookiesUsed(ctx: ContextInterface): ctx is ContextInterface<WithCookies> {
-    return ctx.state.cookies !== undefined && ctx.state.cookiesToSet !== undefined;
+export function areCookiesUsed(ctx: RequestContext): ctx is Context<WithCookies> {
+    return (ctx as Context<WithCookies>).state.cookies !== undefined &&
+        (ctx as Context<WithCookies>).state.cookiesToSet !== undefined;
 }
 
 export enum SameSiteOpt {

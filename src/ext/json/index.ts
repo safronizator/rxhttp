@@ -3,8 +3,8 @@ import {ErrorHandlerFunc, HandlingError, Middleware, Renderer} from "../../handl
 import {RequestHeader, StatusCode} from "../../http";
 import {streamReadAllToString} from "../../helpers";
 import {BodyParsed, CustomResponseData} from "../common";
-import {Context, Response} from "../../base";
-import {RequestInterface} from "../../interface";
+import Response from "../../response";
+import {RequestInterface, Context} from "../../interface";
 
 
 export const isJson = (request: RequestInterface): boolean => {

@@ -1,7 +1,8 @@
 import {Observable, Subject, Subscription} from "rxjs";
 import FMW from "find-my-way";
 import {Method} from "./http";
-import {Context} from "./base";
+import {Context} from "./interface";
+import Ctx from "./ctx";
 
 
 type FMWInstance = FMW.Instance<any>;
@@ -19,7 +20,7 @@ const subscribe = (fmv: FMWInstance, src: Observable<Context>): Subscription => 
 const addRoute = <T>(fmv: FMWInstance, method: Method, path: string): Observable<Context<T & Routed>> => {
     const routed = new Subject<Context<T & Routed>>();
     fmv.on(method, path, function (this: Context<T>, req, res, params) {
-        routed.next(Context.from(this).withState({ router: params }));
+        routed.next(Ctx.from(this).withState({ router: params }));
     });
     return routed;
 };

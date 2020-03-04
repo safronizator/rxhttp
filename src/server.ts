@@ -2,14 +2,14 @@ import {NextObserver, Observable, Subject} from "rxjs";
 import {
     DefaultHost,
     DefaultPort,
-    isReadableStream,
-    ServerResponseInterface
+    ServerResponse
 } from "./interface";
 import http, {RequestListener} from "http";
-import {Context} from "./base";
+import Ctx from "./ctx";
 import {catchErrors, HandlingError, ResponseHandler} from "./handling";
 import {tap} from "rxjs/operators";
-import { debug } from "./interface";
+import { debug, Context } from "./interface";
+import {isReadableStream} from "./helpers";
 
 const dbg = debug.extend("server");
 
@@ -33,7 +33,7 @@ function parseAddrDef(addr: string): Addr {
     });
 }
 
-function flushResponse(r: ServerResponseInterface): void {
+function flushResponse(r: ServerResponse): void {
     const res = r.context.original.res;
     res.statusCode = r.status;
     if (r.headers) {
@@ -57,18 +57,18 @@ export function capture(requests: NextObserver<Context>): RequestListener {
         res.on("finish", () => {
             dbg("Request#%d processed", id);
         });
-        requests.next(Context.fromNodeContext(id, { req, res  }));
+        requests.next(Ctx.fromNodeContext(id, { req, res  }));
     };
 }
 
 interface ServeInterface {
     send(): ResponseHandler;
-    responses: Subject<ServerResponseInterface>;
+    responses: Subject<ServerResponse>;
     errors: Observable<HandlingError>;
 }
 
 export function serve(): ServeInterface {
-    const responses = new Subject<ServerResponseInterface>();
+    const responses = new Subject<ServerResponse>();
     const errors = new Subject<HandlingError>();
     const captureErrors = (): ResponseHandler => source => source.pipe(catchErrors(errors));
     const send = (): ResponseHandler => source => source.pipe(captureErrors(), tap(r => responses.next(r)));

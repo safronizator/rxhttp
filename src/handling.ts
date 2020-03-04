@@ -1,7 +1,8 @@
-import {Context, Response} from "./base";
+import Response from "./response";
 import {
+    Context,
     ResponseLike,
-    ServerResponseInterface
+    ServerResponse
 } from "./interface";
 import {concat, Observable, of, from, throwError, Observer, NextObserver} from "rxjs";
 import {catchError, map, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
@@ -21,16 +22,16 @@ export interface RequestHandlerFunc<T={}> {
     (ctx: Context<T>): ResponseLike | Promise<ResponseLike>;
 }
 
-export interface RequestHandler<T={}, U=ServerResponseInterface> {
+export interface RequestHandler<T={}, U=ServerResponse> {
     (source: Observable<Context<T>>): Observable<U>;
 }
 
 export interface Renderer<T={}> {
-    (source: Observable<Context<T>>): Observable<ServerResponseInterface>;
+    (source: Observable<Context<T>>): Observable<ServerResponse>;
 }
 
 export interface ResponseHandler {
-    (source: Observable<ServerResponseInterface>): Observable<ServerResponseInterface>;
+    (source: Observable<ServerResponse>): Observable<ServerResponse>;
 }
 
 export interface ErrorHandlerFunc {
@@ -39,7 +40,7 @@ export interface ErrorHandlerFunc {
 }
 
 export interface ErrorHandler {
-    (source: Observable<HandlingError>): Observable<ServerResponseInterface>;
+    (source: Observable<HandlingError>): Observable<ServerResponse>;
 }
 
 

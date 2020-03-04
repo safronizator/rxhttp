@@ -3,7 +3,8 @@ import {SessionManager, SessionStorage, WithSession} from "./interface";
 import Storage from "./storage/memory";
 import uniqid from "uniqid";
 import useCookies, {WithCookies} from "../cookies";
-import {Context} from "../../base";
+import {Context} from "../../interface";
+
 
 let defStorage: SessionStorage;
 
