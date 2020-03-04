@@ -9,8 +9,11 @@ import {StatusCode} from "./http";
 
 import { debug } from "./interface";
 
+export interface MiddlewareFunc<T={}, U=T> {
+    (ctx: Context<T>): Context<U> | Promise<Context<U>>;
+}
 
-export interface Middleware<T={}, U={}> {
+export interface Middleware<T={}, U=T> {
     (source: Observable<Context<T>>): Observable<Context<U>>;
 }
 
@@ -45,6 +48,19 @@ export class HandlingError extends Error {
         super(message);
     }
 }
+
+export const passThrough = <T={}, U=T>(handler: MiddlewareFunc<T, U>): Middleware<T, U> => source => source.pipe(
+    mergeMap(async ctx => {
+        try {
+            return await handler(ctx);
+        } catch (e) {
+            if (e instanceof HandlingError) {
+                throw e;
+            }
+            throw new HandlingError(e.message, ctx);
+        }
+    })
+);
 
 export const handleUnsafe = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(
     mergeMap(async ctx => {
