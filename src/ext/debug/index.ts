@@ -15,7 +15,7 @@ const defaultDumpOpts: DumpOpts = {
 /**
  * @todo customizable output
  */
-export const dumpRequests = (dumpOpts: Partial<DumpOpts> = {}): Middleware => source => {
+export const dumpRequests = <T>(dumpOpts: Partial<DumpOpts> = {}): Middleware<T, T> => source => {
     const opts = Object.assign({}, defaultDumpOpts, dumpOpts);
     return source.pipe(tap(async ctx => {
         console.info(`${ctx.original.req.connection.remoteAddress} -> ${ctx.request.method} ${ctx.request.url}`);

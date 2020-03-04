@@ -1,26 +1,33 @@
 import request from "supertest";
-import {catchErrors, HandlingError, Server, StatusCode} from "../src";
+import {serve, capture, Context, HandlingError, StatusCode} from "../src";
 import {filter, map, tap} from "rxjs/operators";
+import {Subject} from "rxjs";
 
 
 describe("Server", () => {
 
-    const server = new Server();
-    const agent = request.agent(server.requestListener);
+    const requests = new Subject<Context>();
+    const agent = request.agent(capture(requests));
+    const { responses, errors, send } = serve();
 
-    server.requests.pipe(
+    requests.pipe(
         filter(ctx => !ctx.request.url.searchParams.has("error")),
-        map(ctx => ctx.reply("Hello!"))
-    ).subscribe(server);
+        map(ctx => ctx.reply("Hello!")),
+        send()
+    ).subscribe();
 
-    server.requests.pipe(
+    requests.pipe(
         filter(ctx => ctx.request.url.searchParams.has("error")),
         tap(ctx => {
             throw new HandlingError("Test error", ctx);
         }),
         map(ctx => ctx.reply("Should not get there")),
-        catchErrors()
-    ).subscribe(server);
+        send()
+    ).subscribe();
+
+    errors.pipe(
+        map(err => err.ctx.reply(err.message).withStatus(StatusCode.InternalServerError))
+    ).subscribe(responses);
 
     it("should reply with status 200 and text 'Hello!' to 'GET /' request", done => {
         agent

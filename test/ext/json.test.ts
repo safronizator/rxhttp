@@ -1,15 +1,17 @@
 import request from "supertest";
-import serve, {RequestHeader, Router, StatusCode} from "../../src";
+import {serve, capture, Context, RequestHeader, Router, StatusCode} from "../../src";
 import {map} from "rxjs/operators";
 import {parseIfJson, parseJson, renderJson} from "../../src/ext/json";
+import {Subject} from "rxjs";
 
 const mimeJson = "application/json";
 
 
 describe("ext/json", () => {
 
-    const { requests, errors, send, requestListener } = serve();
-    const agent = request.agent(requestListener);
+    const requests = new Subject<Context>();
+    const agent = request.agent(capture(requests));
+    const { errors, send } = serve();
     const router = new Router(requests);
 
     router.post("/onlyJson").pipe(

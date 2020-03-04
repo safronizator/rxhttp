@@ -3,8 +3,8 @@ import {ErrorHandlerFunc, HandlingError, Middleware, Renderer} from "../../handl
 import {RequestHeader, StatusCode} from "../../http";
 import {streamReadAllToString} from "../../helpers";
 import {BodyParsed, CustomResponseData} from "../common";
-import {Context, Response} from "../../base";
-import {RequestInterface} from "../../interface";
+import Response from "../../response";
+import {RequestInterface, Context} from "../../interface";
 
 
 export const isJson = (request: RequestInterface): boolean => {
@@ -19,7 +19,7 @@ export const parseRequestBody = async (ctx: Context) => {
     }
 };
 
-export const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe(
+export const parseJson = <T>(): Middleware<T, T & BodyParsed> => source => source.pipe(
     mergeMap(async ctx => {
         if (!isJson(ctx.request)) {
             throw new HandlingError("Request body should contain JSON-encoded data", ctx, StatusCode.BadRequest);
@@ -27,7 +27,7 @@ export const parseJson = (): Middleware<{}, BodyParsed> => source => source.pipe
         return ctx.withState({ parsedBody: await parseRequestBody(ctx) });
     }));
 
-export const parseIfJson = (): Middleware<{}, BodyParsed> => source => source.pipe(
+export const parseIfJson = <T>(): Middleware<T, T & BodyParsed> => source => source.pipe(
     mergeMap(async ctx => {
         if (!isJson(ctx.request)) {
             return ctx.withState({ parsedBody: null });

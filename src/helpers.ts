@@ -37,6 +37,10 @@ export function objectFromMap<T>(m: Map<string, T>): { [key: string]: T } {
     return obj;
 }
 
+export function isReadableStream(data: any): data is ReadableStream {
+    return typeof data.read === "function" && typeof data.readable === "boolean";
+}
+
 export function streamReadAll(stream: ReadableStream): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
         const chunks = new Array<Buffer>();
@@ -53,3 +57,4 @@ export function streamReadAll(stream: ReadableStream): Promise<Buffer> {
 export async function streamReadAllToString(stream: ReadableStream, encoding = "utf8"): Promise<string> {
     return (await streamReadAll(stream)).toString(encoding);
 }
+

@@ -1,16 +1,20 @@
-import {Context, Response} from "./base";
+import Response from "./response";
 import {
+    Context,
     ResponseLike,
-    ServerResponseInterface
+    ServerResponse
 } from "./interface";
-import {concat, Observable, of, from, throwError} from "rxjs";
+import {concat, Observable, of, from, throwError, Observer, NextObserver} from "rxjs";
 import {catchError, map, mergeMap, retryWhen, shareReplay, tap} from "rxjs/operators";
 import {StatusCode} from "./http";
 
 import { debug } from "./interface";
 
+export interface MiddlewareFunc<T={}, U=T> {
+    (ctx: Context<T>): Context<U> | Promise<Context<U>>;
+}
 
-export interface Middleware<T={}, U={}> {
+export interface Middleware<T={}, U=T> {
     (source: Observable<Context<T>>): Observable<Context<U>>;
 }
 
@@ -18,16 +22,16 @@ export interface RequestHandlerFunc<T={}> {
     (ctx: Context<T>): ResponseLike | Promise<ResponseLike>;
 }
 
-export interface RequestHandler<T={}, U=ServerResponseInterface> {
+export interface RequestHandler<T={}, U=ServerResponse> {
     (source: Observable<Context<T>>): Observable<U>;
 }
 
 export interface Renderer<T={}> {
-    (source: Observable<Context<T>>): Observable<ServerResponseInterface>;
+    (source: Observable<Context<T>>): Observable<ServerResponse>;
 }
 
 export interface ResponseHandler {
-    (source: Observable<ServerResponseInterface>): Observable<ServerResponseInterface>;
+    (source: Observable<ServerResponse>): Observable<ServerResponse>;
 }
 
 export interface ErrorHandlerFunc {
@@ -36,7 +40,7 @@ export interface ErrorHandlerFunc {
 }
 
 export interface ErrorHandler {
-    (source: Observable<HandlingError>): Observable<ServerResponseInterface>;
+    (source: Observable<HandlingError>): Observable<ServerResponse>;
 }
 
 
@@ -45,6 +49,19 @@ export class HandlingError extends Error {
         super(message);
     }
 }
+
+export const passThrough = <T={}, U=T>(handler: MiddlewareFunc<T, U>): Middleware<T, U> => source => source.pipe(
+    mergeMap(async ctx => {
+        try {
+            return await handler(ctx);
+        } catch (e) {
+            if (e instanceof HandlingError) {
+                throw e;
+            }
+            throw new HandlingError(e.message, ctx);
+        }
+    })
+);
 
 export const handleUnsafe = <T={}>(handler: RequestHandlerFunc<T>): RequestHandler<T> => source => source.pipe(
     mergeMap(async ctx => {
@@ -75,18 +92,26 @@ export const handleErrors = (handler: ErrorHandlerFunc): ErrorHandler => source 
     })
 );
 
+const isNextObserver = (x: any): x is NextObserver<any> => {
+    return x.next !== undefined && typeof x.next === "function";
+};
+
 const defErrHandler: ErrorHandlerFunc = err => Response.for(err.ctx).withBody(err.message).withStatus(err.httpStatus);
 
-export const catchErrors = (handler: ErrorHandlerFunc = defErrHandler): ResponseHandler => source => {
+export const catchErrors = (handler: ErrorHandlerFunc | Observer<HandlingError> = defErrHandler): ResponseHandler => source => {
     const dbg = debug.extend("catchErrors");
+    const cb: ErrorHandlerFunc = isNextObserver(handler) ? (err) => handler.next(err) : handler as ErrorHandlerFunc;
     return source.pipe(
         shareReplay(),
-        catchError((err: HandlingError) => {
-            //TODO: check err is not an instance of HandlingError
-            dbg("error catched while handling Request#%d: %s", err.ctx.id, err.message);
-            //TODO: log
-            const r = handler(err);
+        catchError((err: Error) => {
+            //TODO: logging
             const thrower = throwError(err);
+            if (!(err instanceof HandlingError)) {
+                console.error("Error was throwed during handling, but it's not an instance of HandlingError (you should avoid such situation):", err);
+                return thrower;
+            }
+            dbg("error catched while handling Request#%d: %s", err.ctx.id, err.message);
+            const r = cb(err);
             if (!r) {
                 return thrower;
             }

@@ -1,32 +1,34 @@
 import request from "supertest";
-import {Context, handle, ResponseLike, Routed, Router, Server, StatusCode} from "../src";
+import {serve, capture, Context, handle, ResponseLike, Routed, Router, StatusCode} from "../src";
 import {map} from "rxjs/operators";
+import {Subject} from "rxjs";
 
 
 describe("Router", () => {
 
-    const server = new Server();
-    const agent = request.agent(server.requestListener);
-    const router = new Router(server.requests);
+    const requests = new Subject<Context>();
+    const agent = request.agent(capture(requests));
+    const { responses } = serve();
+    const router = new Router(requests);
 
     const dumpRouterParamsHandler = (ctx: Context<Routed>): ResponseLike => ctx.reply()
         .withJsonBody({
             routerParams: { ...ctx.state.router }
         });
 
-    router.get("/").pipe(map(ctx => ctx.reply("GET /"))).subscribe(server);
+    router.get("/").pipe(map(ctx => ctx.reply("GET /"))).subscribe(responses);
 
-    router.post("/login").pipe(map(ctx => ctx.reply("POST /login"))).subscribe(server);
+    router.post("/login").pipe(map(ctx => ctx.reply("POST /login"))).subscribe(responses);
 
-    router.delete("/posts/:id").pipe(handle(dumpRouterParamsHandler)).subscribe(server);
+    router.delete("/posts/:id").pipe(handle(dumpRouterParamsHandler)).subscribe(responses);
 
-    router.get("/posts/:year(^\\d{4})/:month(^\\d{2})/:day(^\\d{2})").pipe(handle(dumpRouterParamsHandler)).subscribe(server);
+    router.get("/posts/:year(^\\d{4})/:month(^\\d{2})/:day(^\\d{2})").pipe(handle(dumpRouterParamsHandler)).subscribe(responses);
 
     router.get("/wildcard/*").pipe(map(ctx => ctx.reply().withJsonBody({
         path: ctx.request.url.pathname
-    }))).subscribe(server);
+    }))).subscribe(responses);
 
-    router.unrouted.pipe(map(ctx => ctx.reply().withStatus(StatusCode.NotFound))).subscribe(server);
+    router.unrouted.pipe(map(ctx => ctx.reply().withStatus(StatusCode.NotFound))).subscribe(responses);
 
     it("should correctly route 'GET /' request", done => {
         agent
