@@ -25,7 +25,8 @@ const addRoute = <T>(fmv: FMWInstance, method: Method, path: string): Observable
     return routed;
 };
 
-export class Router<T={}> {
+
+export default class Router<T={}> {
 
     private readonly r: FMWInstance;
     private readonly _unrouted = new Subject<Context<T>>();

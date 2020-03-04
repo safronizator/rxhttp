@@ -62,7 +62,7 @@ export function capture(requests: NextObserver<Context>): RequestListener {
 }
 
 interface ServeInterface {
-    send(): ResponseHandler;
+    send: () => ResponseHandler;
     responses: Subject<ServerResponse>;
     errors: Observable<HandlingError>;
 }

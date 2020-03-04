@@ -9,7 +9,7 @@ import {
     RequestHandlerFunc
 } from "../handling";
 import {StatusCode} from "../http";
-import {Routed, Router} from "../router";
+import Router, {Routed} from "../router";
 import {map} from "rxjs/operators";
 import {Context} from "../interface";
 import {BodyParsed, CustomResponseData} from "../ext";
