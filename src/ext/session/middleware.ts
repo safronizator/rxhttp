@@ -1,9 +1,9 @@
-import {Middleware} from "../../handling";
-import {mergeMap} from "rxjs/operators";
+import {Middleware, passThrough} from "../../handling";
 import {SessionManager, SessionStorage, WithSession} from "./interface";
 import Storage from "./storage/memory";
 import uniqid from "uniqid";
 import useCookies, {WithCookies} from "../cookies";
+import {Context} from "../../base";
 
 let defStorage: SessionStorage;
 
@@ -24,20 +24,35 @@ const loadOrCreate = async (storage: SessionStorage, sid: string): Promise<{ sid
     return { sid: newKey, session: await storage.create(newKey) };
 };
 
-/**
- * @todo proper errors handling
- * @todo additional parameters: lifetime, cookie opts, etc
- */
-const startSession = <T>(storage: SessionStorage = getDefStorage()): Middleware<T, T & WithCookies & WithSession> => source => {
-    return source.pipe(
-        useCookies(), //TODO: options?
-        mergeMap(async ctx => {
-            const receivedId = ctx.state.cookies["sid"]; //TODO: hardcoded key!
-            const {session, sid} = await loadOrCreate(storage, receivedId);
-            ctx.state.setCookie("sid", sid); //TODO: remove hardcode; add expiration and other opts
-            return ctx.withState({session});
-        })
-    );
+interface SessionOpts {
+    storage: SessionStorage;
+    cookieName: string;
+    lifetime?: number;
+    path?: string;
+    domain?: string;
+}
+
+const normalizeOpts = (opts: Partial<SessionOpts>): SessionOpts => ({
+    ...opts,
+    storage: opts.storage || getDefStorage(),
+    cookieName: opts.cookieName || "sid",
+});
+
+const getSessionHandler = (opts: Partial<SessionOpts>) => async <T extends WithCookies>(ctx: Context<T>): Promise<Context<T & WithSession>> => {
+    const fopts = normalizeOpts(opts);
+    const receivedId = ctx.state.cookies[fopts.cookieName];
+    const {session, sid} = await loadOrCreate(fopts.storage, receivedId);
+    ctx.state.setCookie(fopts.cookieName, sid, {
+        expires: opts.lifetime ? new Date(Date.now() + opts.lifetime) : undefined,
+        path: opts.path,
+        domain: opts.domain
+    });
+    return ctx.withState({session});
 };
+
+const startSession = <T>(opts: Partial<SessionOpts> = {}): Middleware<T, T & WithCookies & WithSession> => source => source.pipe(
+    useCookies(),
+    passThrough(getSessionHandler(opts))
+);
 
 export default startSession;
