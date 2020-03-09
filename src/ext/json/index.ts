@@ -8,7 +8,10 @@ import {RequestInterface, Context} from "../../interface";
 
 
 export const isJson = (request: RequestInterface): boolean => {
-    return request.headers.has(RequestHeader.ContentType, "application/json");
+    if (!request.headers.has(RequestHeader.ContentType)) {
+        return false;
+    }
+    return request.headers.getValue(RequestHeader.ContentType)!.split(";")[0] === "application/json";
 };
 
 export const parseRequestBody = async (ctx: Context) => {

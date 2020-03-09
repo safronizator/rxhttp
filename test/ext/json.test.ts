@@ -5,6 +5,7 @@ import {parseIfJson, parseJson, renderJson} from "../../src/ext/json";
 import {Subject} from "rxjs";
 
 const mimeJson = "application/json";
+const mimeJsonEnc = "application/json;charset=UTF-8";
 
 
 describe("ext/json", () => {
@@ -37,6 +38,16 @@ describe("ext/json", () => {
         agent
             .post("/onlyJson")
             .set(RequestHeader.ContentType, mimeJson)
+            .send(`{ "test": 1 }`)
+            .expect({ test: 1 })
+            .expect(StatusCode.Ok, done)
+        ;
+    });
+
+    it("should parse JSON from body with encoding option set in header", done => {
+        agent
+            .post("/onlyJson")
+            .set(RequestHeader.ContentType, mimeJsonEnc)
             .send(`{ "test": 1 }`)
             .expect({ test: 1 })
             .expect(StatusCode.Ok, done)
